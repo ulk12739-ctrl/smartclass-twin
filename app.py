@@ -117,22 +117,37 @@ if st.button("📊 Öğrenci Risk Analizini Yap", type="primary"):
         
     st.info(f"🔍 **Tespit Edilen Risk Gerekçeleri:** {gerekce}")
     
-    # 4. PROFİL YORUMLAMA (Burayı dikkatli kopyala)
+    # 4. ÖNERİLER (Çoklu Uyarı Sistemi)
     st.subheader("📋 Profil Yorumlama ve Öneriler")
     
     not_ort = (ilk_not + ikinci_not) / 2
+    uyari_sayisi = 0
 
+    # 1. Devamsızlık Kontrolü
     if devamsizlik >= 18:
         st.error("🚨 KRİTİK DEVAMSIZLIK: Devamsızlık sınırı aşılmış. Veli ivedilikle aranmalı, devamsızlık mektubu gönderilmeli ve neden araştırılmalıdır.")
-    elif not_ort < 50 and odev_yuzdesi < 50:
-        st.error("🔴 AKADEMİK & ÖDEV ALARMI: Öğrenci hem derslerde başarısız hem de ödev teslim etmiyor. Birebir ödev koçluğu başlatılmalı ve ek etüt programı planlanmalı.")
-    elif not_ort < 70:
-        st.warning("🟠 AKADEMİK DESTEK: Not ortalaması zayıf. Eksik olduğu üniteler belirlenmeli, soru çözüm ofislerine ve etütlere katılım zorunlu tutulmalı.")
+        uyari_sayisi += 1
     elif devamsizlik >= 10:
         st.warning("⚠️ DEVAMSIZLIK SINIRDA: Devamsızlık sınırda. Öğrenciye uyarı verilmeli, daha fazla devamsızlık yapmaması için çalışılmalı.")
-    elif odev_yuzdesi < 85:
-        st.warning("🟡 ÖDEV DİSİPLİNİ: Ders başarısı veya katılımı iyi olsa da ödev istikrarı düşük. Haftalık ödev takip çizelgesi verilmeli ve veli onayı istenmeli.")
-    elif katilim_yuzdesi < 75:
-        st.info("🔵 DERSE KATILIM RİSKİ: Öğrenci derste pasif veya çekingen. Derste söz hakkı verilerek teşvik edilmeli, rehberlik servisiyle özgüven çalışması yapılmalı.")
+        uyari_sayisi += 1
+
+    # 2. Akademik ve Ödev Kontrolü
+    if not_ort < 50 and odev_yuzdesi < 50:
+        st.error("🔴 AKADEMİK & ÖDEV ALARMI: Öğrenci hem derslerde başarısız hem de ödev teslim etmiyor. Birebir ödev koçluğu başlatılmalı ve ek etüt programı planlanmalı.")
+        uyari_sayisi += 1
     else:
+        if not_ort < 70:
+            st.warning("🟠 AKADEMİK DESTEK: Not ortalaması zayıf. Eksik olduğu üniteler belirlenmeli, soru çözüm ofislerine ve etütlere katılım zorunlu tutulmalı.")
+            uyari_sayisi += 1
+        if odev_yuzdesi < 85:
+            st.warning("🟡 ÖDEV DİSİPLİNİ: Ders başarısı veya katılımı iyi olsa da ödev istikrarı düşük. Haftalık ödev takip çizelgesi verilmeli ve veli onayı istenmeli.")
+            uyari_sayisi += 1
+
+    # 3. Katılım Kontrolü
+    if katilim_yuzdesi < 75:
+        st.info("🔵 DERSE KATILIM RİSKİ: Öğrenci derste pasif veya çekingen. Derste söz hakkı verilerek teşvik edilmeli, rehberlik servisiyle özgüven çalışması yapılmalı.")
+        uyari_sayisi += 1
+
+    # 4. Hiç Sorun Yoksa
+    if uyari_sayisi == 0:
         st.success("🟢 BAŞARILI PROFİL: Tüm kriterler hedef seviyede. Öğrencinin motivasyonunu korumak adına tebrik edilmeli, mevcut çalışma disiplini desteklenmeli.")
