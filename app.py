@@ -109,7 +109,7 @@ if st.button("📊 Öğrenci Risk Analizini Yap", type="primary"):
     st.subheader(f"📋 {ogrenci_adi} İçin Risk Analiz Raporu")
     st.metric(label="Hesaplanan Risk Puanı", value=f"{puan} / 100")
     
-    # 3. Genel Durum Göstergesi
+    # 3. Genel Durum
     if durum == "Yüksek Risk": st.error(f"🚨 GENEL DURUM: {durum}")
     elif durum == "Riskli": st.warning(f"⚠️ GENEL DURUM: {durum}")
     elif durum == "Düşük Risk": st.info(f"💡 GENEL DURUM: {durum}")
@@ -117,22 +117,19 @@ if st.button("📊 Öğrenci Risk Analizini Yap", type="primary"):
         
     st.info(f"🔍 **Tespit Edilen Risk Gerekçeleri:** {gerekce}")
     
-    st.markdown("---")
-    
-    # 4. ÖNERİLER (Hata buradaydı, artık butonun içinde olduğu için puanı görüyor!)
+    # 4. PROFİL YORUMLAMA (Burayı dikkatli kopyala)
     st.subheader("📋 Profil Yorumlama ve Öneriler")
-    if puan >= 90:
-        st.error("🚨 KRİTİK DEVAMSIZLIK: Devamsızlık sınırı aşılmış. Veli ivedilikle aranmalı, devamsızlık mektubu gönderilmeli ve neden araştırılmalıdır.")
-    elif puan >= 75:
-        st.warning("⚠️ DEVAMSIZLIK SINIRDA: Devamsızlık sınırda. Öğrenciye uyarı verilmeli, daha fazla devamsızlık yapmaması için çalışılmalı.")
-    elif puan >= 60:
-        st.warning("🟠 AKADEMİK DESTEK: Not ortalaması zayıf. Eksik olduğu üniteler belirlenmeli, soru çözüm ofislerine ve etütlere katılım zorunlu tutulmalı.")
-    elif puan >= 40:
-        st.info("🔵 DERSE KATILIM RİSKİ: Öğrenci derste pasif veya çekingen. Derste söz hakkı verilerek teşvik edilmeli, rehberlik servisiyle özgüven çalışması yapılmalı.")
-    elif puan >= 25:
+    
+    if puan >= 70:
+        st.error("🚨 KRİTİK DEVAMSIZLIK/BAŞARI: Devamsızlık sınırı aşılmış. Veli ivedilikle aranmalı, devamsızlık mektubu gönderilmeli ve neden araştırılmalıdır.")
+    elif puan >= 50:
+        st.warning("⚠️ AKADEMİK DESTEK: Not ortalaması zayıf. Eksik olduğu üniteler belirlenmeli, soru çözüm ofislerine ve etütlere katılım zorunlu tutulmalı.")
+    elif puan >= 30 and odev_yuzdesi < 90:
         st.warning("🟡 ÖDEV DİSİPLİNİ: Ders başarısı veya katılımı iyi olsa da ödev istikrarı düşük. Haftalık ödev takip çizelgesi verilmeli ve veli onayı istenmeli.")
-    elif puan >= 10:
-        st.error("🔴 AKADEMİK & ÖDEV ALARMI: Öğrenci hem derslerde başarısız hem de ödev teslim etmiyor. Birebir ödev koçluğu başlatılmalı ve ek etüt programı planlanmalı.")
+    elif katilim_yuzdesi < 70:
+        st.info("🔵 DERSE KATILIM RİSKİ: Öğrenci derste pasif veya çekingen. Derste söz hakkı verilerek teşvik edilmeli, rehberlik servisiyle özgüven çalışması yapılmalı.")
+    elif puan >= 20:
+        st.info("💡 Genel durumu stabil ancak akademik gelişimi takip edilmeli.")
     else:
         st.success("🟢 BAŞARILI PROFİL: Tüm kriterler hedef seviyede. Öğrencinin motivasyonunu korumak adına tebrik edilmeli, mevcut çalışma disiplini desteklenmeli.")
 
