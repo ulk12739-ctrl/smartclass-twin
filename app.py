@@ -90,9 +90,9 @@ def risk_hesapla(ilk_not, ikinci_not, devamsizlik, odev_yuzdesi, katilim_yuzdesi
     agirli_toplam = (devamsizlik_riski * 0.50) + (akademik_riski * 0.50) + (odev_riski * 0.20) + (katilim_riski * 0.20) + (performans_riski * 0.10)
     puan = round(agirli_toplam / 1.50, 2)
     
-    if puan >= 70: durum = "Yüksek Risk"
-    elif puan >= 45: durum = "Riskli"
-    elif puan >= 20: durum = "Düşük Risk"
+    if puan >= 50: durum = "Yüksek Risk"
+    elif puan >= 20: durum = "Riskli"
+    elif puan >= 10: durum = "Düşük Risk"
     else: durum = "Risk Yok"
         
     gerekce = ", ".join(nedenler) if nedenler else "Belirgin bir risk faktörü bulunamadı."
