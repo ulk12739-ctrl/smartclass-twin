@@ -120,25 +120,19 @@ if st.button("📊 Öğrenci Risk Analizini Yap", type="primary"):
     # 4. PROFİL YORUMLAMA (Burayı dikkatli kopyala)
     st.subheader("📋 Profil Yorumlama ve Öneriler")
     
-    if puan >= 70:
-        st.error("🚨 KRİTİK DEVAMSIZLIK/BAŞARI: Devamsızlık sınırı aşılmış. Veli ivedilikle aranmalı, devamsızlık mektubu gönderilmeli ve neden araştırılmalıdır.")
-    elif puan >= 50:
-        st.warning("⚠️ AKADEMİK DESTEK: Not ortalaması zayıf. Eksik olduğu üniteler belirlenmeli, soru çözüm ofislerine ve etütlere katılım zorunlu tutulmalı.")
-    elif puan >= 30 and odev_yuzdesi < 90:
+    not_ort = (ilk_not + ikinci_not) / 2
+
+    if devamsizlik >= 18:
+        st.error("🚨 KRİTİK DEVAMSIZLIK: Devamsızlık sınırı aşılmış. Veli ivedilikle aranmalı, devamsızlık mektubu gönderilmeli ve neden araştırılmalıdır.")
+    elif not_ort < 50 and odev_yuzdesi < 50:
+        st.error("🔴 AKADEMİK & ÖDEV ALARMI: Öğrenci hem derslerde başarısız hem de ödev teslim etmiyor. Birebir ödev koçluğu başlatılmalı ve ek etüt programı planlanmalı.")
+    elif not_ort < 70:
+        st.warning("🟠 AKADEMİK DESTEK: Not ortalaması zayıf. Eksik olduğu üniteler belirlenmeli, soru çözüm ofislerine ve etütlere katılım zorunlu tutulmalı.")
+    elif devamsizlik >= 10:
+        st.warning("⚠️ DEVAMSIZLIK SINIRDA: Devamsızlık sınırda. Öğrenciye uyarı verilmeli, daha fazla devamsızlık yapmaması için çalışılmalı.")
+    elif odev_yuzdesi < 85:
         st.warning("🟡 ÖDEV DİSİPLİNİ: Ders başarısı veya katılımı iyi olsa da ödev istikrarı düşük. Haftalık ödev takip çizelgesi verilmeli ve veli onayı istenmeli.")
-    elif katilim_yuzdesi < 70:
+    elif katilim_yuzdesi < 75:
         st.info("🔵 DERSE KATILIM RİSKİ: Öğrenci derste pasif veya çekingen. Derste söz hakkı verilerek teşvik edilmeli, rehberlik servisiyle özgüven çalışması yapılmalı.")
-    elif puan >= 20:
-        st.info("💡 Genel durumu stabil ancak akademik gelişimi takip edilmeli.")
     else:
         st.success("🟢 BAŞARILI PROFİL: Tüm kriterler hedef seviyede. Öğrencinin motivasyonunu korumak adına tebrik edilmeli, mevcut çalışma disiplini desteklenmeli.")
-
-    # 5. Grafik
-    st.markdown("---")
-    st.subheader("📊 Yapay Zeka Karar Mekanizması Grafiği")
-    fig, ax = plt.subplots(figsize=(10, 5))
-    tree.plot_tree(model, 
-                   feature_names=['Son Hafta Devamsızlık', 'Not Ortalaması', 'Ödev Tamamlama Yüzdesi'],
-                   class_names=['Guvende', 'Riskli'], 
-                   filled=True, rounded=True, ax=ax)
-    st.pyplot(fig)
