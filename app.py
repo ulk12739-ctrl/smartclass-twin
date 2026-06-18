@@ -122,3 +122,21 @@ if st.button("📊 Öğrenci Risk Analizini Yap", type="primary"):
                    class_names=['Guvende', 'Riskli'], 
                    filled=True, rounded=True, ax=ax)
     st.pyplot(fig)
+
+# Analiz sonrası profil yorumlama kısmı
+st.subheader("📋 Profil Yorumlama ve Öneriler")
+
+if risk_puani >= 90:
+    st.error("🚨 KRİTİK DEVAMSIZLIK: Devamsızlık sınırı aşılmış. Veli ivedilikle aranmalı, devamsızlık mektubu gönderilmeli ve neden araştırılmalıdır.")
+elif risk_puani >= 75:
+    st.warning("⚠️ DEVAMSIZLIK SINIRDA: Devamsızlık sınırda. Öğrenciye uyarı verilmeli, daha fazla devamsızlık yapmaması için çalışılmalı.")
+elif risk_puani >= 60:
+    st.warning("🟠 AKADEMİK DESTEK: Not ortalaması zayıf. Eksik olduğu üniteler belirlenmeli, soru çözüm ofislerine ve etütlere katılım zorunlu tutulmalı.")
+elif risk_puani >= 40:
+    st.info("🔵 DERSE KATILIM RİSKİ: Öğrenci derste pasif veya çekingen. Derste söz hakkı verilerek teşvik edilmeli, rehberlik servisiyle özgüven çalışması yapılmalı.")
+elif risk_puani >= 25:
+    st.warning("🟡 ÖDEV DİSİPLİNİ: Ders başarısı veya katılımı iyi olsa da ödev istikrarı düşük. Haftalık ödev takip çizelgesi verilmeli ve veli onayı istenmeli.")
+elif risk_puani >= 10:
+    st.error("🔴 AKADEMİK & ÖDEV ALARMI: Öğrenci hem derslerde başarısız hem de ödev teslim etmiyor. Birebir ödev koçluğu başlatılmalı ve ek etüt programı planlanmalı.")
+else:
+    st.success("🟢 BAŞARILI PROFİL: Tüm kriterler hedef seviyede. Öğrencinin motivasyonunu korumak adına tebrik edilmeli, mevcut çalışma disiplini desteklenmeli.")
