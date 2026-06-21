@@ -3,6 +3,7 @@ from sklearn.tree import DecisionTreeClassifier
 import streamlit as st
 import matplotlib.pyplot as plt
 from sklearn import tree
+from streamlit_extras.let_it_rain import rain
 
 # ==================================================
 # SAYFA AYARLARI
@@ -105,7 +106,7 @@ if st.button("📊 Öğrenci Risk Analizini Yap", type="primary"):
         st.info(f"💡 GENEL DURUM: {durum}")
     else: 
         st.success(f"✅ GENEL DURUM: {durum}")
-        st.balloons()
+        rain(emoji="🎉", font_size=40, falling_speed=5, animation_length=3)
     st.info(f"🔍 **Tespit Edilen Risk Gerekçeleri:** {gerekce}")
     
     st.subheader("📋 Profil Yorumlama ve Öneriler")
