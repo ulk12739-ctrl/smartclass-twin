@@ -254,4 +254,4 @@ if yuklenen_dosya is not None:
         st.dataframe(df_yuklenen.style.applymap(renk_ver, subset=['Risk Durumu']))
         
     except Exception as e:
-        st.error("🚨 Dosya okunurken bir hata oluştu. Lütfen şablondaki sütun isimlerini değiştirmediğinizden emin olun.")
+        st.error(f"🚨 Hata detayı: {e}")
