@@ -164,6 +164,21 @@ if st.button("📊 Öğrenci Risk Analizini Yap", type="primary"):
         st.success("🟢 BAŞARILI PROFİL: Tüm kriterler hedef seviyede. Öğrencinin motivasyonunu korumak adına tebrik edilmeli, mevcut çalışma disiplini desteklenmeli.")
 
 # ==================================================
+    # GÖRSEL PERFORMANS GRAFİĞİ
+    # ==================================================
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.subheader("📊 Öğrenci Performans Analizi")
+    
+    # Grafiğe basılacak verileri (notlar, ödev ve katılım) 
+    grafik_verisi = pd.DataFrame({
+        "Kategoriler": ["1. Sınav", "2. Sınav", "Ödev", "Katılım"],
+        "Puanlar": [ilk_not, ikinci_not, odev_yuzdesi, katilim_yuzdesi]
+    })
+    
+    # Streamlit'in kendi interaktif sütun grafiği
+    st.bar_chart(grafik_verisi.set_index("Kategoriler"))
+
+# ==================================================
 # TOPLU SINIF ANALİZİ (ŞABLON VE YÜKLEME MODÜLÜ)
 # ==================================================
 st.markdown("---")
