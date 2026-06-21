@@ -97,11 +97,15 @@ if st.button("📊 Öğrenci Risk Analizini Yap", type="primary"):
     st.subheader(f"📋 {ogrenci_adi} İçin Risk Analiz Raporu")
     st.metric(label="Hesaplanan Risk Puanı", value=f"{puan} / 100")
     
-    if durum == "Yüksek Risk": st.error(f"🚨 GENEL DURUM: {durum}")
-    elif durum == "Riskli": st.warning(f"⚠️ GENEL DURUM: {durum}")
-    elif durum == "Düşük Risk": st.info(f"💡 GENEL DURUM: {durum}")
-    else: st.success(f"✅ GENEL DURUM: {durum}")
-          st.balloons()
+    if durum == "Yüksek Risk": 
+        st.error(f"🚨 GENEL DURUM: {durum}")
+    elif durum == "Riskli": 
+        st.warning(f"⚠️ GENEL DURUM: {durum}")
+    elif durum == "Düşük Risk": 
+        st.info(f"💡 GENEL DURUM: {durum}")
+    else: 
+        st.success(f"✅ GENEL DURUM: {durum}")
+        st.balloons()
     st.info(f"🔍 **Tespit Edilen Risk Gerekçeleri:** {gerekce}")
     
     st.subheader("📋 Profil Yorumlama ve Öneriler")
