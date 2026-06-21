@@ -4,6 +4,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from sklearn import tree
 from streamlit_extras.let_it_rain import rain
+import plotly.graph_objects as go
 
 # ==================================================
 # SAYFA AYARLARI
@@ -18,7 +19,6 @@ def risk_hesapla(ilk_not, ikinci_not, devamsizlik, odev_yuzdesi, katilim_yuzdesi
     not_ort = (ilk_not + ikinci_not) / 2
     performans_dususu = ilk_not - ikinci_not
     
-    # Excel'deki formülün birebir aynısı!
     puan = 90.0 + (devamsizlik * 0.5) - (not_ort * 0.5) - (odev_yuzdesi * 0.2) - (katilim_yuzdesi * 0.2) + (performans_dususu * 0.1)
     
     if puan > 100: puan = 100
@@ -116,42 +116,76 @@ if st.button("📊 Öğrenci Risk Analizini Yap", type="primary"):
     uyari_sayisi = 0
 
     if devamsizlik >= 18:
-        st.error("🚨 KRİTİK DEVAMSIZLIK: Devamsızlık sınırı aşılmış. Veli ivedilikle aranmalı, devamsızlık mektubu gönderilmeli ve neden araştırılmalıdır.")
+        st.error("🚨 KRİTİK DEVAMSIZLIK: Devamsızlık sınırı aşılmış. Veli ivedilikle aranmalı.")
         uyari_sayisi += 1
     elif devamsizlik >= 10:
-        st.warning("⚠️ DEVAMSIZLIK SINIRDA: Devamsızlık sınırda. Öğrenciye uyarı verilmeli, daha fazla devamsızlık yapmaması için çalışılmalı.")
+        st.warning("⚠️ DEVAMSIZLIK SINIRDA: Devamsızlık sınırda. Öğrenciye uyarı verilmeli.")
         uyari_sayisi += 1
 
     if not_ort < 50 and odev_yuzdesi < 50:
-        st.error("🔴 AKADEMİK & ÖDEV ALARMI: Öğrenci hem derslerde başarısız hem de ödev teslim etmiyor. Birebir ödev koçluğu başlatılmalı ve ek etüt programı planlanmalı.")
+        st.error("🔴 AKADEMİK & ÖDEV ALARMI: Öğrenci başarısız ve ödev teslim etmiyor. Ek etüt planlanmalı.")
         uyari_sayisi += 1
     else:
         if not_ort < 70:
-            st.warning("🟠 AKADEMİK DESTEK: Not ortalaması zayıf. Eksik olduğu üniteler belirlenmeli, soru çözüm ofislerine and etütlere katılım zorunlu tutulmalı.")
+            st.warning("🟠 AKADEMİK DESTEK: Not ortalaması zayıf. Soru çözüm ofislerine katılım zorunlu tutulmalı.")
             uyari_sayisi += 1
         if odev_yuzdesi < 85:
-            st.warning("🟡 ÖDEV DİSİPLİNİ: Ders başarısı veya katılımı iyi olsa da ödev istikrarı düşük. Haftalık ödev takip çizelgesi verilmeli and veli onayı istenmeli.")
+            st.warning("🟡 ÖDEV DİSİPLİNİ: Ödev istikrarı düşük. Haftalık ödev takip çizelgesi verilmeli.")
             uyari_sayisi += 1
 
     if katilim_yuzdesi < 75:
-        st.info("🔵 DERSE KATILIM RİSKİ: Öğrenci derste pasif veya çekingen. Derste söz hakkı verilerek teşvik edilmeli, rehberlik servisiyle özgüven çalışması yapılmalı.")
+        st.info("🔵 DERSE KATILIM RİSKİ: Öğrenci derste pasif. Derste söz hakkı verilerek teşvik edilmeli.")
         uyari_sayisi += 1
 
     if uyari_sayisi == 0:
-        st.success("🟢 BAŞARILI PROFİL: Tüm kriterler hedef seviyede. Öğrencinin motivasyonunu korumak adına tebrik edilmeli, mevcut çalışma disiplini desteklenmeli.")
+        st.success("🟢 BAŞARILI PROFİL: Tüm kriterler hedef seviyede. Öğrenci tebrik edilmeli.")
 
     # ==================================================
-    # GÖRSEL PERFORMANS GRAFİĞİ
+    # YENİ: GÖRSEL PERFORMANS GRAFİĞİ VE RADAR
     # ==================================================
     st.markdown("<br>", unsafe_allow_html=True)
-    st.subheader("📊 Öğrenci Performans Analizi")
+    st.subheader("📊 Öğrenci Performans & Profil Radarı")
     
-    grafik_verisi = pd.DataFrame({
-        "Kategoriler": ["1. Sınav", "2. Sınav", "Ödev", "Katılım"],
-        "Puanlar": [ilk_not, ikinci_not, odev_yuzdesi, katilim_yuzdesi]
-    })
+    # Ekranı ikiye bölüyoruz
+    col_grafik1, col_grafik2 = st.columns(2)
     
-    st.bar_chart(grafik_verisi.set_index("Kategoriler"))
+    with col_grafik1:
+        st.markdown("**Temel Puanlar (Sütun)**")
+        grafik_verisi = pd.DataFrame({
+            "Kategoriler": ["1. Sınav", "2. Sınav", "Ödev", "Katılım"],
+            "Puanlar": [ilk_not, ikinci_not, odev_yuzdesi, katilim_yuzdesi]
+        })
+        st.bar_chart(grafik_verisi.set_index("Kategoriler"))
+        
+    with col_grafik2:
+        st.markdown("**Yetkinlik Ağı (Radar)**")
+        
+        # Devamsızlığı radar için tersine çeviriyoruz (100 üzerinden iyi bir puana dönüştürüyoruz)
+        devam_puani = 100 - (devamsizlik * 2) 
+        if devam_puani < 0: devam_puani = 0
+            
+        kategoriler = ['1. Sınav', '2. Sınav', 'Ödev', 'Katılım', 'Devamlılık']
+        degerler = [ilk_not, ikinci_not, odev_yuzdesi, katilim_yuzdesi, devam_puani]
+        
+        # Radarın çizgilerini kapatmak için ilk değeri sona ekliyoruz
+        kategoriler_kapali = kategoriler + [kategoriler[0]]
+        degerler_kapali = degerler + [degerler[0]]
+        
+        fig = go.Figure(data=go.Scatterpolar(
+            r=degerler_kapali,
+            theta=kategoriler_kapali,
+            fill='toself',
+            line_color='#FF4B4B'
+        ))
+        
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=True, range=[0, 100])
+            ),
+            showlegend=False,
+            margin=dict(l=40, r=40, t=20, b=20)
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
 # ==================================================
 # TOPLU SINIF ANALİZİ (ŞABLON VE YÜKLEME MODÜLÜ)
@@ -211,9 +245,6 @@ if yuklenen_dosya is not None:
         
         st.success("✅ Yapay Zeka sınıfınızı saniyeler içinde analiz etti! İşte sonuçlar:")
         
-        # ==================================================
-        # YENİ: EKRAN ÜSTÜ SINIF RISK ÖZETİ (METRİKLER)
-        # ==================================================
         toplam_ogrenci = len(df_yuklenen)
         yuksek_risk_sayisi = durumlar.count("Yüksek Risk")
         riskli_sayisi = durumlar.count("Riskli")
@@ -229,9 +260,6 @@ if yuklenen_dosya is not None:
         m5.metric("✅ Risk Yok", risk_yok_sayisi)
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # ==================================================
-        # TABLO RENKLENDİRME VE GÖSTERİM
-        # ==================================================
         def renk_ver(val):
             if val == "Yüksek Risk": return 'background-color: rgba(255, 75, 75, 0.4)'
             elif val == "Riskli": return 'background-color: rgba(255, 165, 0, 0.4)'
@@ -244,13 +272,8 @@ if yuklenen_dosya is not None:
         else:
             st.dataframe(df_yuklenen.style.applymap(renk_ver, subset=['Risk Durumu']))
             
-        # ==================================================
-        # YENİ: ÖZETLİ RAPOR İNDİRME BUTONU
-        # ==================================================
-        # Tabloyu ana metin olarak alıyoruz
         csv_analiz = df_yuklenen.to_csv(index=False, sep=';')
         
-        # İndirilen dosyanın en altına şık bir özet rapor ekliyoruz
         ozet_rapor_metni = (
             "\n\n"
             "=== YAPAY ZEKA SINIF GENEL RİSK ÖZETİ ===\n"
@@ -261,7 +284,6 @@ if yuklenen_dosya is not None:
             f"✅ Risk Faktörü Bulunmayan Öğrenci Sayısı;{risk_yok_sayisi}\n"
         )
         
-        # Tablo verisi ile özet verisini birleştirip tek dosya yapıyoruz
         indirme_verisi = (csv_analiz + ozet_rapor_metni).encode('utf-8-sig')
         
         st.markdown("<br>", unsafe_allow_html=True)
