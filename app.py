@@ -18,7 +18,7 @@ with col_sol:
     st.image("kesapfenlogo-removebg-preview.png", width=90)
 
 with col_sag:
-    st.image("meblogo-removebg-preview.png", width=130)
+    st.image("meblogo-removebg-preview.png", width=150)
 
 st.title("🏫 SmartClass Twin - Öğrenci Risk Analiz Paneli")
 st.write("Öğrencinin verilerini girerek yapay zeka ve ağırlıklı risk puanı analizini anında görebilirsiniz.")
