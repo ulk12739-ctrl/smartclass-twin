@@ -107,6 +107,7 @@ if st.button("📊 Öğrenci Risk Analizini Yap", type="primary"):
     else: 
         st.success(f"✅ GENEL DURUM: {durum}")
         rain(emoji="🎉", font_size=40, falling_speed=5, animation_length=3)
+        
     st.info(f"🔍 **Tespit Edilen Risk Gerekçeleri:** {gerekce}")
     
     st.subheader("📋 Profil Yorumlama ve Öneriler")
@@ -126,10 +127,10 @@ if st.button("📊 Öğrenci Risk Analizini Yap", type="primary"):
         uyari_sayisi += 1
     else:
         if not_ort < 70:
-            st.warning("🟠 AKADEMİK DESTEK: Not ortalaması zayıf. Eksik olduğu üniteler belirlenmeli, soru çözüm ofislerine ve etütlere katılım zorunlu tutulmalı.")
+            st.warning("🟠 AKADEMİK DESTEK: Not ortalaması zayıf. Eksik olduğu üniteler belirlenmeli, soru çözüm ofislerine and etütlere katılım zorunlu tutulmalı.")
             uyari_sayisi += 1
         if odev_yuzdesi < 85:
-            st.warning("🟡 ÖDEV DİSİPLİNİ: Ders başarısı veya katılımı iyi olsa da ödev istikrarı düşük. Haftalık ödev takip çizelgesi verilmeli ve veli onayı istenmeli.")
+            st.warning("🟡 ÖDEV DİSİPLİNİ: Ders başarısı veya katılımı iyi olsa da ödev istikrarı düşük. Haftalık ödev takip çizelgesi verilmeli and veli onayı istenmeli.")
             uyari_sayisi += 1
 
     if katilim_yuzdesi < 75:
@@ -159,7 +160,6 @@ st.markdown("---")
 st.header("📁 Toplu Sınıf Analizi")
 st.write("Sınıfınızın verilerini tek seferde analiz etmek için önce aşağıdaki şablonu indirin, öğrenci verilerini doldurun ve ardından sisteme geri yükleyin.")
 
-# İsimleri tamamen genel taslak haline getirdik
 ornek_veri = {
     "Öğrenci Adı": ["Öğrenci 1", "Öğrenci 2", "Öğrenci 3", "Öğrenci 4"],
     "İlk Not": [95, 40, 85, 95],
@@ -211,6 +211,27 @@ if yuklenen_dosya is not None:
         
         st.success("✅ Yapay Zeka sınıfınızı saniyeler içinde analiz etti! İşte sonuçlar:")
         
+        # ==================================================
+        # YENİ: EKRAN ÜSTÜ SINIF RISK ÖZETİ (METRİKLER)
+        # ==================================================
+        toplam_ogrenci = len(df_yuklenen)
+        yuksek_risk_sayisi = durumlar.count("Yüksek Risk")
+        riskli_sayisi = durumlar.count("Riskli")
+        dusuk_risk_sayisi = durumlar.count("Düşük Risk")
+        risk_yok_sayisi = durumlar.count("Risk Yok")
+        
+        st.subheader("📊 Sınıf Genel Risk İstatistikleri")
+        m1, m2, m3, m4, m5 = st.columns(5)
+        m1.metric("Mevcut", toplam_ogrenci)
+        m2.metric("🚨 Yüksek Risk", yuksek_risk_sayisi)
+        m3.metric("⚠️ Riskli", riskli_sayisi)
+        m4.metric("💡 Düşük Risk", dusuk_risk_sayisi)
+        m5.metric("✅ Risk Yok", risk_yok_sayisi)
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # ==================================================
+        # TABLO RENKLENDİRME VE GÖSTERİM
+        # ==================================================
         def renk_ver(val):
             if val == "Yüksek Risk": return 'background-color: rgba(255, 75, 75, 0.4)'
             elif val == "Riskli": return 'background-color: rgba(255, 165, 0, 0.4)'
@@ -222,6 +243,34 @@ if yuklenen_dosya is not None:
             st.dataframe(df_yuklenen.style.map(renk_ver, subset=['Risk Durumu']))
         else:
             st.dataframe(df_yuklenen.style.applymap(renk_ver, subset=['Risk Durumu']))
+            
+        # ==================================================
+        # YENİ: ÖZETLİ RAPOR İNDİRME BUTONU
+        # ==================================================
+        # Tabloyu ana metin olarak alıyoruz
+        csv_analiz = df_yuklenen.to_csv(index=False, sep=';')
+        
+        # İndirilen dosyanın en altına şık bir özet rapor ekliyoruz
+        ozet_rapor_metni = (
+            "\n\n"
+            "=== YAPAY ZEKA SINIF GENEL RİSK ÖZETİ ===\n"
+            f"Toplam Analiz Edilen Öğrenci Sayısı;{toplam_ogrenci}\n"
+            f"🚨 Yüksek Riskli Öğrenci Sayısı;{yuksek_risk_sayisi}\n"
+            f"⚠️ Riskli Öğrenci Sayısı;{riskli_sayisi}\n"
+            f"💡 Düşük Riskli Öğrenci Sayısı;{dusuk_risk_sayisi}\n"
+            f"✅ Risk Faktörü Bulunmayan Öğrenci Sayısı;{risk_yok_sayisi}\n"
+        )
+        
+        # Tablo verisi ile özet verisini birleştirip tek dosya yapıyoruz
+        indirme_verisi = (csv_analiz + ozet_rapor_metni).encode('utf-8-sig')
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.download_button(
+            label="📥 Analiz Raporunu İndir (Özet Verileri Dahil)",
+            data=indirme_verisi,
+            file_name='SmartClass_Sınıf_Analiz_Raporu.csv',
+            mime='text/csv',
+        )
         
     except Exception as e:
         st.error(f"🚨 Hata detayı: {e}")
