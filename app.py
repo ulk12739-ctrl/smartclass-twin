@@ -10,21 +10,6 @@ from sklearn import tree
 st.set_page_config(page_title="SmartClass Twin", page_icon="🏫", layout="centered")
 
 # ==================================================
-# EN ÜST KÖŞELERDEKİ ŞEFFAF LOGOLAR 
-# ==================================================
-col_sol, col_bosluk, col_sag = st.columns([2, 3, 2])
-
-with col_sol:
-    st.image("kesapfenlogo-removebg-preview.png", width=90)
-
-with col_sag:
-    st.image("meblogo-removebg-preview.png", width=120)
-
-st.title("🏫 SmartClass Twin - Öğrenci Risk Analiz Paneli")
-st.write("Öğrencinin verilerini girerek yapay zeka ve ağırlıklı risk puanı analizini anında görebilirsiniz.")
-st.markdown("---")
-
-# ==================================================
 # HESAPLAMA MOTORU (EXCEL İLE %100 UYUMLU)
 # ==================================================
 def risk_hesapla(ilk_not, ikinci_not, devamsizlik, odev_yuzdesi, katilim_yuzdesi):
@@ -56,6 +41,21 @@ def risk_hesapla(ilk_not, ikinci_not, devamsizlik, odev_yuzdesi, katilim_yuzdesi
     gerekce = ", ".join(nedenler) if nedenler else "Belirgin bir risk faktörü bulunamadı."
     return puan, durum, gerekce
 
+
+# ==================================================
+# EN ÜST KÖŞELERDEKİ ŞEFFAF LOGOLAR 
+# ==================================================
+col_sol, col_bosluk, col_sag = st.columns([2, 3, 2])
+
+with col_sol:
+    st.image("kesapfenlogo-removebg-preview.png", width=90)
+
+with col_sag:
+    st.image("meblogo-removebg-preview.png", width=120)
+
+st.title("🏫 SmartClass Twin - Öğrenci Risk Analiz Paneli")
+st.write("Öğrencinin verilerini girerek yapay zeka ve ağırlıklı risk puanı analizini anında görebilirsiniz.")
+st.markdown("---")
 
 # ==================================================
 # ARKA PLAN: YAPAY ZEKA MODELİNİN EĞİTİLMESİ
