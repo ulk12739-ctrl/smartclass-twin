@@ -5,25 +5,23 @@ import matplotlib.pyplot as plt
 from sklearn import tree
 
 # ==================================================
-# SAYFA AYARLARI VE BAŞLIK
+# SAYFA AYARLARI
 # ==================================================
 st.set_page_config(page_title="SmartClass Twin", page_icon="🏫", layout="centered")
 
-st.title("🏫 SmartClass Twin - Öğrenci Risk Analiz Paneli")
-st.write("Öğrencinin verilerini girerek yapay zeka ve ağırlıklı risk puanı analizini anında görebilirsiniz.")
-st.markdown("---")
-
 # ==================================================
-# LOGOLAR BÖLÜMÜ (SOL OKUL, SAĞ MEB)
+# EN ÜST KÖŞELERDEKİ ŞEFFAF LOGOLAR 
 # ==================================================
-col_sol, col_sag = st.columns(2)
+col_sol, col_bosluk, col_sag = st.columns([1, 4, 1])
 
 with col_sol:
-    st.image("kesapfenlogo.jpg", width=200)
+    st.image("kesapfenlogo-removebg-preview.png", width=90)
 
 with col_sag:
-    st.image("meblogo.jpg", width=200)
-    
+    st.image("meblogo-removebg-preview.png", width=90)
+
+st.title("🏫 SmartClass Twin - Öğrenci Risk Analiz Paneli")
+st.write("Öğrencinin verilerini girerek yapay zeka ve ağırlıklı risk puanı analizini anında görebilirsiniz.")
 st.markdown("---")
 
 # ==================================================
