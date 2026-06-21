@@ -12,13 +12,13 @@ st.set_page_config(page_title="SmartClass Twin", page_icon="🏫", layout="cente
 # ==================================================
 # EN ÜST KÖŞELERDEKİ ŞEFFAF LOGOLAR 
 # ==================================================
-col_sol, col_bosluk, col_sag = st.columns([1, 4, 1])
+col_sol, col_bosluk, col_sag = st.columns([2, 3, 2])
 
 with col_sol:
     st.image("kesapfenlogo-removebg-preview.png", width=90)
 
 with col_sag:
-    st.image("meblogo-removebg-preview.png", width=300)
+    st.image("meblogo-removebg-preview.png", width=150)
 
 st.title("🏫 SmartClass Twin - Öğrenci Risk Analiz Paneli")
 st.write("Öğrencinin verilerini girerek yapay zeka ve ağırlıklı risk puanı analizini anında görebilirsiniz.")
