@@ -10,7 +10,7 @@ from sklearn import tree
 st.set_page_config(page_title="SmartClass Twin", page_icon="🏫", layout="centered")
 
 # ==================================================
-# HESAPLAMA MOTORU (TEK VE KESİN KOD)
+# HESAPLAMA MOTORU
 # ==================================================
 def risk_hesapla(ilk_not, ikinci_not, devamsizlik, odev_yuzdesi, katilim_yuzdesi):
     nedenler = []
@@ -80,7 +80,7 @@ model = modeli_egit()
 # ==================================================
 st.subheader("👤 Öğrenci Bilgilerini Giriniz")
 
-ogrenci_adi = st.text_input("Öğrenci Adı Soyadı", value="Selin")
+ogrenci_adi = st.text_input("Öğrenci Tanımlayıcı (İsim/No)", value="Öğrenci Örnek")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -90,7 +90,7 @@ with col2:
     ikinci_not = st.number_input("2. Sınav Notu", min_value=0, max_value=100, value=85)
     katilim_yuzdesi = st.slider("Derse Katılım Yüzdesi (%)", min_value=0, max_value=100, value=90)
 
-devamsizlik = st.number_input("Toplam Devamsızlık (Gün)", min_value=0, max_value=100, value=28)
+devamsizlik = st.number_input("Toplam Devamsızlık (Gün)", min_value=0, max_value=100, value=5)
 
 st.markdown("---")
 
@@ -160,8 +160,9 @@ st.markdown("---")
 st.header("📁 Toplu Sınıf Analizi")
 st.write("Sınıfınızın verilerini tek seferde analiz etmek için önce aşağıdaki şablonu indirin, öğrenci verilerini doldurun ve ardından sisteme geri yükleyin.")
 
+# İsimleri tamamen genel taslak haline getirdik
 ornek_veri = {
-    "Öğrenci Adı": ["Ahmet Yılmaz", "Zeynep Kaya", "Caner Çelik", "Elif Demir"],
+    "Öğrenci Adı": ["Öğrenci 1", "Öğrenci 2", "Öğrenci 3", "Öğrenci 4"],
     "İlk Not": [95, 40, 85, 95],
     "İkinci Not": [100, 35, 90, 90],
     "Devamsızlık": [0, 15, 22, 2],
@@ -218,7 +219,6 @@ if yuklenen_dosya is not None:
             elif val == "Risk Yok": return 'background-color: rgba(0, 128, 0, 0.4)'
             return ''
 
-        # Pandas kütüphanesinin güncel sürümlerine uyum için style.map kullanıyoruz
         if hasattr(df_yuklenen.style, "map"):
             st.dataframe(df_yuklenen.style.map(renk_ver, subset=['Risk Durumu']))
         else:
