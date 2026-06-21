@@ -180,7 +180,7 @@ ornek_veri = {
     "Katılım Yüzdesi": [95, 50]
 }
 ornek_df = pd.DataFrame(ornek_veri)
-csv_sablon = ornek_df.to_csv(index=False).encode('utf-8')
+csv_sablon = ornek_df.to_csv(index=False, sep=';').encode('utf-8-sig')
 
 st.download_button(
     label="📥 Örnek Şablonu İndir (CSV)",
