@@ -25,6 +25,39 @@ st.write("Öğrencinin verilerini girerek yapay zeka ve ağırlıklı risk puan�
 st.markdown("---")
 
 # ==================================================
+# HESAPLAMA MOTORU (EXCEL İLE %100 UYUMLU)
+# ==================================================
+def risk_hesapla(ilk_not, ikinci_not, devamsizlik, odev_yuzdesi, katilim_yuzdesi):
+    nedenler = []
+    not_ort = (ilk_not + ikinci_not) / 2
+    performans_dususu = ilk_not - ikinci_not
+    
+    # Excel'deki formülün birebir aynısı!
+    puan = 90.0 + (devamsizlik * 0.5) - (not_ort * 0.5) - (odev_yuzdesi * 0.2) - (katilim_yuzdesi * 0.2) + (performans_dususu * 0.1)
+    
+    # Mantıksız sayıları önlemek için puanı 0 ile 100 arasına hapsediyoruz
+    if puan > 100: puan = 100
+    if puan < 0: puan = 0
+    puan = round(puan, 2)
+
+    # Gerekçeleri belirleme (Sistemin akıllı uyarıları devam etsin diye)
+    if not_ort < 70: nedenler.append("Düşük Akademik Başarı")
+    if devamsizlik >= 10: nedenler.append("Devamsızlık Riski")
+    if odev_yuzdesi < 85: nedenler.append("Ödev Eksikliği")
+    if katilim_yuzdesi < 75: nedenler.append("Düşük Katılım")
+    if performans_dususu > 0: nedenler.append(f"Performans Düşüşü ({ilk_not} -> {ikinci_not})")
+
+    # Durum etiketleri
+    if puan >= 70: durum = "Yüksek Risk"
+    elif puan >= 45: durum = "Riskli"
+    elif puan >= 20: durum = "Düşük Risk"
+    else: durum = "Risk Yok"
+        
+    gerekce = ", ".join(nedenler) if nedenler else "Belirgin bir risk faktörü bulunamadı."
+    return puan, durum, gerekce
+
+
+# ==================================================
 # ARKA PLAN: YAPAY ZEKA MODELİNİN EĞİTİLMESİ
 # ==================================================
 @st.cache_resource
