@@ -211,14 +211,47 @@ yuklenen_dosya = st.file_uploader("Doldurduğunuz şablonu (Excel veya CSV) bura
 
 if yuklenen_dosya is not None:
     try:
-        # Excel veya CSV formatını otomatik anlama
+        # Excel veya CSV formatını okuma
         if yuklenen_dosya.name.endswith('.csv'):
-            df_yuklenen = pd.read_csv(yuklenen_dosya)
+            df_yuklenen = pd.read_csv(yuklenen_dosya, sep=';')
         else:
             df_yuklenen = pd.read_excel(yuklenen_dosya)
             
-        st.success("✅ Dosya başarıyla okundu! Yüklenen liste:")
-        st.dataframe(df_yuklenen)
+        # Yapay Zeka Sınıfı Analiz Ediyor...
+        risk_puanlari = []
+        durumlar = []
+        gerekceler = []
+        
+        for index, row in df_yuklenen.iterrows():
+            # Tablodaki her bir öğrenciyi sırayla alıp senin formülünden geçiriyoruz
+            puan, durum, gerekce = risk_hesapla(
+                row["İlk Not"], 
+                row["İkinci Not"], 
+                row["Devamsızlık"], 
+                row["Ödev Yüzdesi"], 
+                row["Katılım Yüzdesi"]
+            )
+            risk_puanlari.append(puan)
+            durumlar.append(durum)
+            gerekceler.append(gerekce)
+        
+        # Analiz sonuçlarını tabloya yepyeni sütunlar olarak ekliyoruz
+        df_yuklenen["Risk Puanı"] = risk_puanlari
+        df_yuklenen["Risk Durumu"] = durumlar
+        df_yuklenen["Yapay Zeka Önerisi"] = gerekceler
+        
+        st.success("✅ Yapay Zeka sınıfınızı saniyeler içinde analiz etti! İşte sonuçlar:")
+        
+        # Jilet gibi bir renklendirme fonksiyonu
+        def renk_ver(val):
+            if val == "Yüksek Risk": return 'background-color: rgba(255, 75, 75, 0.4)'
+            elif val == "Riskli": return 'background-color: rgba(255, 165, 0, 0.4)'
+            elif val == "Düşük Risk": return 'background-color: rgba(255, 255, 0, 0.2)'
+            elif val == "Risk Yok": return 'background-color: rgba(0, 128, 0, 0.4)'
+            return ''
+
+        # Tabloyu 'Risk Durumu'na göre renklendirerek ekrana bas
+        st.dataframe(df_yuklenen.style.applymap(renk_ver, subset=['Risk Durumu']))
         
     except Exception as e:
-        st.error("🚨 Dosya okunurken bir hata oluştu. Lütfen indirdiğiniz şablondaki sütun isimlerini değiştirmediğinizden emin olun.")
+        st.error("🚨 Dosya okunurken bir hata oluştu. Lütfen şablondaki sütun isimlerini değiştirmediğinizden emin olun.")
