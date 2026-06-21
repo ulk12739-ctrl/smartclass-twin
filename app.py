@@ -76,23 +76,17 @@ def modeli_egit():
 model = modeli_egit()
 
 # ==================================================
-# ÖN YÜZ: KULLANICI GİRDİ ALANLARI (FORM)
+# SOL MENÜ (SIDEBAR): VERİ GİRİŞ PANELİ
 # ==================================================
-st.subheader("👤 Öğrenci Bilgilerini Giriniz")
+st.sidebar.header("⚙️ Veri Giriş Paneli")
+st.sidebar.write("Tekil öğrenci analizi için değerleri belirleyin.")
 
-ogrenci_adi = st.text_input("Öğrenci Tanımlayıcı (İsim/No)", value="Öğrenci Örnek")
-
-col1, col2 = st.columns(2)
-with col1:
-    ilk_not = st.number_input("1. Sınav Notu", min_value=0, max_value=100, value=95)
-    odev_yuzdesi = st.slider("Ödev Tamamlama Yüzdesi (%)", min_value=0, max_value=100, value=100)
-with col2:
-    ikinci_not = st.number_input("2. Sınav Notu", min_value=0, max_value=100, value=85)
-    katilim_yuzdesi = st.slider("Derse Katılım Yüzdesi (%)", min_value=0, max_value=100, value=90)
-
-devamsizlik = st.number_input("Toplam Devamsızlık (Gün)", min_value=0, max_value=100, value=5)
-
-st.markdown("---")
+ogrenci_adi = st.sidebar.text_input("Öğrenci Tanımlayıcı", value="Öğrenci Örnek")
+ilk_not = st.sidebar.number_input("1. Sınav Notu", min_value=0, max_value=100, value=95)
+ikinci_not = st.sidebar.number_input("2. Sınav Notu", min_value=0, max_value=100, value=85)
+odev_yuzdesi = st.sidebar.slider("Ödev Tamamlama (%)", min_value=0, max_value=100, value=100)
+katilim_yuzdesi = st.sidebar.slider("Derse Katılım (%)", min_value=0, max_value=100, value=90)
+devamsizlik = st.sidebar.number_input("Devamsızlık (Gün)", min_value=0, max_value=100, value=5)
 
 # ==================================================
 # ANALİZ BUTONU VE SONUÇLARIN GÖSTERİLMESİ
