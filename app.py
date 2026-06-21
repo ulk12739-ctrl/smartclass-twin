@@ -14,6 +14,19 @@ st.write("Öğrencinin verilerini girerek yapay zeka ve ağırlıklı risk puan�
 st.markdown("---")
 
 # ==================================================
+# LOGOLAR BÖLÜMÜ (SOL OKUL, SAĞ MEB)
+# ==================================================
+col_sol, col_sag = st.columns(2)
+
+with col_sol:
+    st.image("kesapfenlogo.jpg", width=200)
+
+with col_sag:
+    st.image("meblogo.jpg", width=200)
+    
+st.markdown("---")
+
+# ==================================================
 # ARKA PLAN: YAPAY ZEKA MODELİNİN EĞİTİLMESİ
 # ==================================================
 @st.cache_resource
