@@ -162,3 +162,48 @@ if st.button("📊 Öğrenci Risk Analizini Yap", type="primary"):
     # 4. Hiç Sorun Yoksa
     if uyari_sayisi == 0:
         st.success("🟢 BAŞARILI PROFİL: Tüm kriterler hedef seviyede. Öğrencinin motivasyonunu korumak adına tebrik edilmeli, mevcut çalışma disiplini desteklenmeli.")
+
+# ==================================================
+# TOPLU SINIF ANALİZİ (ŞABLON VE YÜKLEME MODÜLÜ)
+# ==================================================
+st.markdown("---")
+st.header("📁 Toplu Sınıf Analizi")
+st.write("Sınıfınızın verilerini tek seferde analiz etmek için önce aşağıdaki şablonu indirin, öğrenci verilerini doldurun ve ardından sisteme geri yükleyin.")
+
+# 1. Örnek Şablon Oluşturma ve İndirme Butonu
+ornek_veri = {
+    "Öğrenci Adı": ["Örnek Öğrenci 1", "Örnek Öğrenci 2"],
+    "İlk Not": [100, 70],
+    "İkinci Not": [90, 80],
+    "Devamsızlık": [2, 12],
+    "Ödev Yüzdesi": [100, 60],
+    "Katılım Yüzdesi": [95, 50]
+}
+ornek_df = pd.DataFrame(ornek_veri)
+csv_sablon = ornek_df.to_csv(index=False).encode('utf-8')
+
+st.download_button(
+    label="📥 Örnek Şablonu İndir (CSV)",
+    data=csv_sablon,
+    file_name='SmartClass_Ornek_Sablon.csv',
+    mime='text/csv',
+)
+
+st.markdown("<br>", unsafe_allow_html=True) # Araya şık bir boşluk atıyoruz
+
+# 2. Doldurulan Dosyayı Yükleme Alanı
+yuklenen_dosya = st.file_uploader("Doldurduğunuz şablonu (Excel veya CSV) buraya sürükleyin", type=["csv", "xlsx"])
+
+if yuklenen_dosya is not None:
+    try:
+        # Excel veya CSV formatını otomatik anlama
+        if yuklenen_dosya.name.endswith('.csv'):
+            df_yuklenen = pd.read_csv(yuklenen_dosya)
+        else:
+            df_yuklenen = pd.read_excel(yuklenen_dosya)
+            
+        st.success("✅ Dosya başarıyla okundu! Yüklenen liste:")
+        st.dataframe(df_yuklenen)
+        
+    except Exception as e:
+        st.error("🚨 Dosya okunurken bir hata oluştu. Lütfen indirdiğiniz şablondaki sütun isimlerini değiştirmediğinizden emin olun.")
