@@ -55,14 +55,11 @@ if not st.session_state["giris_yapildi"]:
 # 2. EKRAN: ANA UYGULAMA (Giriş Yapılınca)
 # ==================================================
 else:
-    st.write("Öğrencinin verilerini girerek yapay zeka ve ağırlıklı risk puanı analizini anında görebilirsiniz.")
-    
     # HESAPLAMA MOTORU
     def risk_hesapla(ilk_not, ikinci_not, devamsizlik, odev_yuzdesi, katilim_yuzdesi):
         nedenler = []
         not_ort = (ilk_not + ikinci_not) / 2
         performans_dususu = ilk_not - ikinci_not
-        
         puan = 90.0 + (devamsizlik * 0.5) - (not_ort * 0.5) - (odev_yuzdesi * 0.2) - (katilim_yuzdesi * 0.2) + (performans_dususu * 0.1)
         
         if puan > 100: puan = 100
@@ -82,6 +79,30 @@ else:
             
         gerekce = ", ".join(nedenler) if nedenler else "Belirgin bir risk faktörü bulunamadı."
         return puan, durum, gerekce
+
+    # YENİ: OTURMA DÜZENİ ÖNERİ MOTORU
+    def oturma_onerisi_yap(ilk_not, ikinci_not, d1, d2):
+        mesaj = ""
+        ikon = "💡"
+        
+        if ikinci_not < ilk_not: # Not düşmüşse
+            if d2 == "Geleneksel Sıra":
+                mesaj = "Not düşüşü gözlemlendi. Geleneksel düzenden 'Yarım Daire' veya 'Küme Düzeni' gibi daha etkileşimli bir modele geçilmesi önerilir."
+                ikon = "🚨"
+            elif d2 == "Yarım Daire":
+                mesaj = "Yarım daire düzenine rağmen düşüş sürmekte. En üst kademe olan 'Küme Düzeni'ne (Grup Çalışması) geçiş yapılması tavsiye edilir."
+                ikon = "⚠️"
+            else: # Zaten Küme Düzenindeyse
+                mesaj = "Öğrenci en verimli düzen olan Küme Düzeninde olmasına rağmen düşüş yaşıyor. Acil rehberlik servisine yönlendirilmeli ve bireysel destek verilmelidir."
+                ikon = "🛑"
+        elif ikinci_not > ilk_not: # Not artmışsa
+            mesaj = f"Başarı artışı sağlandı! Mevcut '{d2}' düzeni öğrenci için verimli görünüyor, bu düzenin korunması başarının devamını sağlayabilir."
+            ikon = "✅"
+        else: # Not sabitse
+            mesaj = "Başarı durumu sabit. Sosyal etkileşimi artırmak için bir üst kademe oturma düzeni denenebilir."
+            ikon = "ℹ️"
+            
+        return mesaj, ikon
 
     # ARKA PLAN: YAPAY ZEKA MODELİNİN EĞİTİLMESİ
     @st.cache_resource
@@ -106,8 +127,16 @@ else:
     # SOL MENÜ (SIDEBAR): VERİ GİRİŞ PANELİ
     st.sidebar.header("⚙️ Veri Giriş Paneli")
     ogrenci_adi = st.sidebar.text_input("Öğrenci Tanımlayıcı", value="Öğrenci Örnek")
+    
+    # --- SINAV 1 VE DÜZENİ ---
     ilk_not = st.sidebar.number_input("1. Sınav Notu", 0, 100, 95)
+    duzen1 = st.sidebar.selectbox("1. Sınav Dönemi Oturma Düzeni", ["Geleneksel Sıra", "Yarım Daire", "Küme Düzeni"])
+    
+    # --- SINAV 2 VE DÜZENİ ---
     ikinci_not = st.sidebar.number_input("2. Sınav Notu", 0, 100, 85)
+    duzen2 = st.sidebar.selectbox("2. Sınav Dönemi Oturma Düzeni", ["Geleneksel Sıra", "Yarım Daire", "Küme Düzeni"])
+    
+    st.sidebar.markdown("---")
     odev_yuzdesi = st.sidebar.slider("Ödev Tamamlama (%)", 0, 100, 100)
     katilim_yuzdesi = st.sidebar.slider("Derse Katılım (%)", 0, 100, 90)
     devamsizlik = st.sidebar.number_input("Devamsızlık (Gün)", 0, 100, 5)
@@ -117,13 +146,16 @@ else:
         st.session_state["giris_yapildi"] = False
         st.rerun()
 
-    # ANALİZ BUTONU VE SONUÇLARIN GÖSTERİLMESİ
-    if st.button("📊 Öğrenci Risk Analizini Yap", type="primary", use_container_width=True):
+    # ANA PANEL İÇERİĞİ
+    st.write("Öğrencinin akademik ve mekansal verilerini girerek analizi başlatın.")
+    if st.button("📊 Analizi ve Önerileri Göster", type="primary", use_container_width=True):
         puan, durum, gerekce = risk_hesapla(ilk_not, ikinci_not, devamsizlik, odev_yuzdesi, katilim_yuzdesi)
+        oneri_mesaji, oneri_ikon = oturma_onerisi_yap(ilk_not, ikinci_not, duzen1, duzen2)
         
         st.subheader(f"📋 {ogrenci_adi} İçin Risk Analiz Raporu")
-        st.metric(label="Hesaplanan Risk Puanı", value=f"{puan} / 100")
+        st.metric(label="Hesaplanan Risk Skoru", value=f"{puan} / 100")
         
+        # Risk Durumu Gösterimi
         if durum == "Yüksek Risk": st.error(f"🚨 GENEL DURUM: {durum}")
         elif durum == "Riskli": st.warning(f"⚠️ GENEL DURUM: {durum}")
         elif durum == "Düşük Risk": st.info(f"💡 GENEL DURUM: {durum}")
@@ -131,10 +163,14 @@ else:
             st.success(f"✅ GENEL DURUM: {durum}")
             rain(emoji="🎉", font_size=40, falling_speed=5, animation_length=3)
             
-        st.info(f"🔍 **Tespit Edilen Risk Gerekçeleri:** {gerekce}")
+        st.info(f"🔍 **Risk Gerekçeleri:** {gerekce}")
+
+        # YENİ: OTURMA DÜZENİ ÖNERİSİ
+        st.subheader("🪑 Mekansal Yerleşim Önerisi")
+        st.success(f"{oneri_ikon} **Stratejik Öneri:** {oneri_mesaji}")
         
-        # ---> DİKKATİNDEN KAÇMAYAN YORUMLAMA KISMI GERİ GELDİ! <---
-        st.subheader("📋 Profil Yorumlama ve Öneriler")
+        # Profil Yorumlama ve Öneriler
+        st.subheader("📋 Pedagojik Öneriler")
         not_ort = (ilk_not + ikinci_not) / 2
         uyari_sayisi = 0
 
@@ -142,137 +178,79 @@ else:
             st.error("🚨 KRİTİK DEVAMSIZLIK: Devamsızlık sınırı aşılmış. Veli ivedilikle aranmalı.")
             uyari_sayisi += 1
         elif devamsizlik >= 10:
-            st.warning("⚠️ DEVAMSIZLIK SINIRDA: Devamsızlık sınırda. Öğrenciye uyarı verilmeli.")
+            st.warning("⚠️ DEVAMSIZLIK SINIRDA: Devamsızlık sınırı yakın. Öğrenciyle görüşülmeli.")
             uyari_sayisi += 1
 
         if not_ort < 50 and odev_yuzdesi < 50:
-            st.error("🔴 AKADEMİK & ÖDEV ALARMI: Öğrenci başarısız ve ödev teslim etmiyor. Ek etüt planlanmalı.")
+            st.error("🔴 AKADEMİK & ÖDEV ALARMI: Başarısızlık ve ödev eksikliği bir arada. Ek etüt planlanmalı.")
             uyari_sayisi += 1
         else:
             if not_ort < 70:
-                st.warning("🟠 AKADEMİK DESTEK: Not ortalaması zayıf. Soru çözüm ofislerine katılım zorunlu tutulmalı.")
+                st.warning("🟠 AKADEMİK DESTEK: Ortalamayı yükseltmek için soru çözüm ofislerine katılım sağlanmalı.")
                 uyari_sayisi += 1
             if odev_yuzdesi < 85:
-                st.warning("🟡 ÖDEV DİSİPLİNİ: Ödev istikrarı düşük. Haftalık ödev takip çizelgesi verilmeli.")
+                st.warning("🟡 ÖDEV DİSİPLİNİ: Ödev istikrarı düşük. Haftalık takip çizelgesi verilmeli.")
                 uyari_sayisi += 1
 
-        if katilim_yuzdesi < 75:
-            st.info("🔵 DERSE KATILIM RİSKİ: Öğrenci derste pasif. Derste söz hakkı verilerek teşvik edilmeli.")
-            uyari_sayisi += 1
-
         if uyari_sayisi == 0:
-            st.success("🟢 BAŞARILI PROFİL: Tüm kriterler hedef seviyede. Öğrenci tebrik edilmeli.")
+            st.success("🟢 BAŞARILI PROFİL: Mevcut çalışma disiplini desteklenmeli.")
 
-        # ==================================================
-        # GÖRSEL PERFORMANS GRAFİĞİ VE RADAR
-        # ==================================================
+        # GRAFİKLER
         st.markdown("---")
-        st.subheader("📊 Öğrenci Performans & Profil Radarı")
-        
+        st.subheader("📊 Performans & Profil Radarı")
         col_grafik1, col_grafik2 = st.columns(2)
         
         with col_grafik1:
-            st.markdown("**Temel Puanlar (Sütun)**")
-            grafik_verisi = pd.DataFrame({
-                "Kategoriler": ["1. Sınav", "2. Sınav", "Ödev", "Katılım"],
-                "Puanlar": [ilk_not, ikinci_not, odev_yuzdesi, katilim_yuzdesi]
-            })
-            st.bar_chart(grafik_verisi.set_index("Kategoriler"))
+            st.markdown("**Temel Puanlar**")
+            st.bar_chart(pd.DataFrame({"Puanlar": [ilk_not, ikinci_not, odev_yuzdesi, katilim_yuzdesi]}, 
+                        index=["1. Sınav", "2. Sınav", "Ödev", "Katılım"]))
             
         with col_grafik2:
             st.markdown("**Yetkinlik Ağı (Radar)**")
+            devam_puani = max(0, 100 - (devamsizlik * 2))
+            kategoriler = ['1. Sınav', '2. Sınav', 'Ödev', 'Katılım', 'Devamlılık', '1. Sınav']
+            degerler = [ilk_not, ikinci_not, odev_yuzdesi, katilim_yuzdesi, devam_puani, ilk_not]
             
-            devam_puani = 100 - (devamsizlik * 2) 
-            if devam_puani < 0: devam_puani = 0
-                
-            kategoriler = ['1. Sınav', '2. Sınav', 'Ödev', 'Katılım', 'Devamlılık']
-            degerler = [ilk_not, ikinci_not, odev_yuzdesi, katilim_yuzdesi, devam_puani]
-            
-            kategoriler_kapali = kategoriler + [kategoriler[0]]
-            degerler_kapali = degerler + [degerler[0]]
-            
-            fig = go.Figure(data=go.Scatterpolar(
-                r=degerler_kapali,
-                theta=kategoriler_kapali,
-                fill='toself',
-                line_color='#FF4B4B'
-            ))
-            
-            fig.update_layout(
-                polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
-                showlegend=False,
-                margin=dict(l=40, r=40, t=20, b=20)
-            )
+            fig = go.Figure(data=go.Scatterpolar(r=degerler, theta=kategoriler, fill='toself', line_color='#FF4B4B'))
+            fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, margin=dict(l=40, r=40, t=20, b=20))
             st.plotly_chart(fig, use_container_width=True)
 
-    # ==================================================
-    # TOPLU SINIF ANALİZİ (ŞABLON VE YÜKLEME MODÜLÜ)
-    # ==================================================
+    # TOPLU SINIF ANALİZİ
     st.markdown("---")
     st.header("📁 Toplu Sınıf Analizi")
-    st.write("Sınıfınızın verilerini tek seferde analiz etmek için önce aşağıdaki şablonu indirin, öğrenci verilerini doldurun ve ardından sisteme geri yükleyin.")
+    st.write("Excel üzerinden tüm sınıfın risk ve düzen analizini yapın.")
 
     ornek_veri = {
-        "Öğrenci Adı": ["Öğrenci 1", "Öğrenci 2", "Öğrenci 3", "Öğrenci 4"],
-        "İlk Not": [95, 40, 85, 95],
-        "İkinci Not": [100, 35, 90, 90],
-        "Devamsızlık": [0, 15, 22, 2],
-        "Ödev Yüzdesi": [100, 40, 90, 10],
-        "Katılım Yüzdesi": [100, 30, 85, 20]
+        "Öğrenci Adı": ["Öğrenci 1", "Öğrenci 2"],
+        "İlk Not": [95, 40],
+        "İkinci Not": [100, 35],
+        "Devamsızlık": [0, 15],
+        "Ödev Yüzdesi": [100, 40],
+        "Katılım Yüzdesi": [100, 30]
     }
     ornek_df = pd.DataFrame(ornek_veri)
-    csv_sablon = ornek_df.to_csv(index=False, sep=';').encode('utf-8-sig')
+    st.download_button(label="📥 Örnek Şablonu İndir", data=ornek_df.to_csv(index=False, sep=';').encode('utf-8-sig'), file_name='SmartClass_Sablon.csv')
 
-    st.download_button(
-        label="📥 Örnek Şablonu İndir (CSV)",
-        data=csv_sablon,
-        file_name='SmartClass_Ornek_Sablon.csv',
-        mime='text/csv',
-    )
-
-    st.markdown("<br>", unsafe_allow_html=True) 
-
-    yuklenen_dosya = st.file_uploader("Doldurduğunuz şablonu buraya sürükleyin", type=["csv", "xlsx"])
+    yuklenen_dosya = st.file_uploader("Şablonu yükleyin", type=["csv", "xlsx"])
 
     if yuklenen_dosya is not None:
         try:
-            if yuklenen_dosya.name.endswith('.csv'):
-                df_yuklenen = pd.read_csv(yuklenen_dosya, sep=';')
-            else:
-                df_yuklenen = pd.read_excel(yuklenen_dosya)
-                
-            risk_puanlari = []
-            durumlar = []
-            gerekceler = []
+            df_yuklenen = pd.read_csv(yuklenen_dosya, sep=';') if yuklenen_dosya.name.endswith('.csv') else pd.read_excel(yuklenen_dosya)
             
-            for index, row in df_yuklenen.iterrows():
-                puan, durum, gerekce = risk_hesapla(
-                    row["İlk Not"], row["İkinci Not"], row["Devamsızlık"], row["Ödev Yüzdesi"], row["Katılım Yüzdesi"]
-                )
-                risk_puanlari.append(puan)
-                durumlar.append(durum)
-                gerekceler.append(gerekce)
+            p_list, d_list, g_list = [], [], []
+            for i, row in df_yuklenen.iterrows():
+                p, d, g = risk_hesapla(row["İlk Not"], row["İkinci Not"], row["Devamsızlık"], row["Ödev Yüzdesi"], row["Katılım Yüzdesi"])
+                p_list.append(p); d_list.append(d); g_list.append(g)
             
-            df_yuklenen["Risk Puanı"] = risk_puanlari
-            df_yuklenen["Risk Durumu"] = durumlar
-            df_yuklenen["Yapay Zeka Önerisi"] = gerekceler
+            df_yuklenen["Risk Puanı"], df_yuklenen["Risk Durumu"], df_yuklenen["Öneri"] = p_list, d_list, g_list
             
-            st.success("✅ Yapay Zeka sınıfınızı saniyeler içinde analiz etti! İşte sonuçlar:")
-            
-            toplam_ogrenci = len(df_yuklenen)
-            yuksek_risk_sayisi = durumlar.count("Yüksek Risk")
-            riskli_sayisi = durumlar.count("Riskli")
-            dusuk_risk_sayisi = durumlar.count("Düşük Risk")
-            risk_yok_sayisi = durumlar.count("Risk Yok")
-            
-            st.subheader("📊 Sınıf Genel Risk İstatistikleri")
+            st.success("✅ Sınıf analizi tamamlandı!")
             m1, m2, m3, m4, m5 = st.columns(5)
-            m1.metric("Mevcut", toplam_ogrenci)
-            m2.metric("🚨 Yüksek Risk", yuksek_risk_sayisi)
-            m3.metric("⚠️ Riskli", riskli_sayisi)
-            m4.metric("💡 Düşük Risk", dusuk_risk_sayisi)
-            m5.metric("✅ Risk Yok", risk_yok_sayisi)
-            st.markdown("<br>", unsafe_allow_html=True)
+            m1.metric("Mevcut", len(df_yuklenen))
+            m2.metric("🚨 Yüksek Risk", d_list.count("Yüksek Risk"))
+            m3.metric("⚠️ Riskli", d_list.count("Riskli"))
+            m4.metric("💡 Düşük Risk", d_list.count("Düşük Risk"))
+            m5.metric("✅ Risk Yok", d_list.count("Risk Yok"))
             
             def renk_ver(val):
                 if val == "Yüksek Risk": return 'background-color: rgba(255, 75, 75, 0.4)'
@@ -281,32 +259,10 @@ else:
                 elif val == "Risk Yok": return 'background-color: rgba(0, 128, 0, 0.4)'
                 return ''
 
-            if hasattr(df_yuklenen.style, "map"):
-                st.dataframe(df_yuklenen.style.map(renk_ver, subset=['Risk Durumu']))
-            else:
-                st.dataframe(df_yuklenen.style.applymap(renk_ver, subset=['Risk Durumu']))
-                
-            csv_analiz = df_yuklenen.to_csv(index=False, sep=';')
+            st.dataframe(df_yuklenen.style.applymap(renk_ver, subset=['Risk Durumu']))
             
-            ozet_rapor_metni = (
-                "\n\n"
-                "=== YAPAY ZEKA SINIF GENEL RİSK ÖZETİ ===\n"
-                f"Toplam Analiz Edilen Öğrenci Sayısı;{toplam_ogrenci}\n"
-                f"🚨 Yüksek Riskli Öğrenci Sayısı;{yuksek_risk_sayisi}\n"
-                f"⚠️ Riskli Öğrenci Sayısı;{riskli_sayisi}\n"
-                f"💡 Düşük Riskli Öğrenci Sayısı;{dusuk_risk_sayisi}\n"
-                f"✅ Risk Faktörü Bulunmayan Öğrenci Sayısı;{risk_yok_sayisi}\n"
-            )
-            
-            indirme_verisi = (csv_analiz + ozet_rapor_metni).encode('utf-8-sig')
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.download_button(
-                label="📥 Analiz Raporunu İndir (Özet Verileri Dahil)",
-                data=indirme_verisi,
-                file_name='SmartClass_Sınıf_Analiz_Raporu.csv',
-                mime='text/csv',
-            )
+            csv_data = df_yuklenen.to_csv(index=False, sep=';').encode('utf-8-sig')
+            st.download_button(label="📥 Analiz Raporunu İndir", data=csv_data, file_name='Sınıf_Analiz_Raporu.csv')
             
         except Exception as e:
-            st.error(f"🚨 Hata detayı: {e}")
+            st.error(f"🚨 Hata: {e}")
