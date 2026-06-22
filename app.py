@@ -57,7 +57,7 @@ if not st.session_state["giris_yapildi"]:
 else:
     st.write("Öğrencinin verilerini girerek yapay zeka ve ağırlıklı risk puanı analizini anında görebilirsiniz.")
     
-    # HESAPLAMA MOTORU (Risk Puanı) - DÜZELTİLDİ!
+    # HESAPLAMA MOTORU (KADEMELİ RİSK GEREKÇELERİ EKLENDİ)
     def risk_hesapla(ilk_not, ikinci_not, devamsizlik, odev_yuzdesi, katilim_yuzdesi):
         nedenler = []
         not_ort = (ilk_not + ikinci_not) / 2
@@ -69,14 +69,33 @@ else:
         if puan < 0: puan = 0
         puan = round(puan, 2)
 
-        if not_ort < 70: nedenler.append("Düşük Akademik Başarı")
-        if devamsizlik >= 10: nedenler.append("Devamsızlık Riski")
-        if odev_yuzdesi < 85: nedenler.append("Ödev Eksikliği")
-        if katilim_yuzdesi < 75: nedenler.append("Düşük Katılım")
-        
-        # ---> İŞTE SİLİNEN O EFSANE SATIR GERİ GELDİ! <---
-        if performans_dususu > 0: nedenler.append(f"Performans Düşüşü ({ilk_not} -> {ikinci_not})")
+        # HASSAS VE KADEMELİ GEREKÇE LİSTESİ
+        if not_ort < 50: 
+            nedenler.append("Akademik Yüksek Risk")
+        elif not_ort < 70: 
+            nedenler.append("Akademik Düşük Risk")
+        elif ikinci_not < 70: 
+            nedenler.append("2. Sınav Kaynaklı Akademik Düşük Risk")
+            
+        if devamsizlik >= 18: 
+            nedenler.append("Kritik Devamsızlık Riski")
+        elif devamsizlik >= 10: 
+            nedenler.append("Devamsızlık Kaynaklı Düşük Risk")
+            
+        if odev_yuzdesi < 50: 
+            nedenler.append("Ödev Kaynaklı Yüksek Risk")
+        elif odev_yuzdesi < 85: 
+            nedenler.append("Ödev Kaynaklı Düşük Risk")
+            
+        if katilim_yuzdesi < 50: 
+            nedenler.append("Katılım Kaynaklı Yüksek Risk")
+        elif katilim_yuzdesi < 75: 
+            nedenler.append("Katılım Kaynaklı Düşük Risk")
+            
+        if performans_dususu > 0: 
+            nedenler.append(f"Performans Düşüşü ({ilk_not} -> {ikinci_not})")
 
+        # GENEL DURUM ETİKETİ
         if puan >= 70: durum = "Yüksek Risk"
         elif puan >= 45: durum = "Riskli"
         elif puan >= 20: durum = "Düşük Risk"
@@ -175,12 +194,12 @@ else:
             
         st.info(f"🔍 **Tespit Edilen Risk Gerekçeleri:** {gerekce}")
 
-        # YENİ: STRATEJİK ÖNERİ VE PERFORMANS EĞRİSİ
+        # STRATEJİK ÖNERİ VE PERFORMANS EĞRİSİ
         st.subheader("🎯 Stratejik Yerleşim Önerisi")
         st.info(f"**{egri_metni}**")
         st.success(f"{oneri_ikon} **Yerleşim Tavsiyesi:** {oneri_mesaji}")
         
-        # ---> PEDAGOJİK ÖNERİLER (ESKİLERİ NOKTASINA VİRGÜLÜNE KADAR KORUNDU) <---
+        # PEDAGOJİK ÖNERİLER 
         st.subheader("📋 Profil Yorumlama ve Öneriler")
         not_ort = (ilk_not + ikinci_not) / 2
         uyari_sayisi = 0
@@ -208,4 +227,154 @@ else:
             uyari_sayisi += 1
 
         if uyari_sayisi == 0:
-            st.success("🟢 BAŞARILI PROFİL: Tüm kriterler hedef seviyede")
+            st.success("🟢 BAŞARILI PROFİL: Tüm kriterler hedef seviyede. Öğrenci tebrik edilmeli.")
+
+        # ==================================================
+        # GÖRSEL PERFORMANS GRAFİĞİ VE RADAR
+        # ==================================================
+        st.markdown("---")
+        st.subheader("📊 Öğrenci Performans & Profil Radarı")
+        
+        col_grafik1, col_grafik2 = st.columns(2)
+        
+        with col_grafik1:
+            st.markdown("**Temel Puanlar (Sütun)**")
+            grafik_verisi = pd.DataFrame({
+                "Kategoriler": ["1. Sınav", "2. Sınav", "Ödev", "Katılım"],
+                "Puanlar": [ilk_not, ikinci_not, odev_yuzdesi, katilim_yuzdesi]
+            })
+            st.bar_chart(grafik_verisi.set_index("Kategoriler"))
+            
+        with col_grafik2:
+            st.markdown("**Yetkinlik Ağı (Radar)**")
+            
+            devam_puani = 100 - (devamsizlik * 2) 
+            if devam_puani < 0: devam_puani = 0
+                
+            kategoriler = ['1. Sınav', '2. Sınav', 'Ödev', 'Katılım', 'Devamlılık']
+            degerler = [ilk_not, ikinci_not, odev_yuzdesi, katilim_yuzdesi, devam_puani]
+            
+            kategoriler_kapali = kategoriler + [kategoriler[0]]
+            degerler_kapali = degerler + [degerler[0]]
+            
+            fig = go.Figure(data=go.Scatterpolar(
+                r=degerler_kapali,
+                theta=kategoriler_kapali,
+                fill='toself',
+                line_color='#FF4B4B'
+            ))
+            
+            fig.update_layout(
+                polar=dict(
+                    radialaxis=dict(visible=True, range=[0, 100])
+                ),
+                showlegend=False,
+                margin=dict(l=40, r=40, t=20, b=20)
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+    # ==================================================
+    # TOPLU SINIF ANALİZİ
+    # ==================================================
+    st.markdown("---")
+    st.header("📁 Toplu Sınıf Analizi")
+    st.write("Sınıfınızın verilerini tek seferde analiz etmek için önce aşağıdaki şablonu indirin, öğrenci verilerini doldurun ve ardından sisteme geri yükleyin.")
+
+    ornek_veri = {
+        "Öğrenci Adı": ["Öğrenci 1", "Öğrenci 2", "Öğrenci 3", "Öğrenci 4"],
+        "İlk Not": [95, 40, 85, 95],
+        "İkinci Not": [100, 35, 90, 90],
+        "Devamsızlık": [0, 15, 22, 2],
+        "Ödev Yüzdesi": [100, 40, 90, 10],
+        "Katılım Yüzdesi": [100, 30, 85, 20]
+    }
+    ornek_df = pd.DataFrame(ornek_veri)
+    csv_sablon = ornek_df.to_csv(index=False, sep=';').encode('utf-8-sig')
+
+    st.download_button(
+        label="📥 Örnek Şablonu İndir (CSV)",
+        data=csv_sablon,
+        file_name='SmartClass_Ornek_Sablon.csv',
+        mime='text/csv',
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True) 
+
+    yuklenen_dosya = st.file_uploader("Doldurduğunuz şablonu buraya sürükleyin", type=["csv", "xlsx"])
+
+    if yuklenen_dosya is not None:
+        try:
+            if yuklenen_dosya.name.endswith('.csv'):
+                df_yuklenen = pd.read_csv(yuklenen_dosya, sep=';')
+            else:
+                df_yuklenen = pd.read_excel(yuklenen_dosya)
+                
+            risk_puanlari = []
+            durumlar = []
+            gerekceler = []
+            
+            for index, row in df_yuklenen.iterrows():
+                puan, durum, gerekce = risk_hesapla(
+                    row["İlk Not"], row["İkinci Not"], row["Devamsızlık"], row["Ödev Yüzdesi"], row["Katılım Yüzdesi"]
+                )
+                risk_puanlari.append(puan)
+                durumlar.append(durum)
+                gerekceler.append(gerekce)
+            
+            df_yuklenen["Risk Puanı"] = risk_puanlari
+            df_yuklenen["Risk Durumu"] = durumlar
+            df_yuklenen["Yapay Zeka Önerisi"] = gerekceler
+            
+            st.success("✅ Yapay Zeka sınıfınızı saniyeler içinde analiz etti! İşte sonuçlar:")
+            
+            toplam_ogrenci = len(df_yuklenen)
+            yuksek_risk_sayisi = durumlar.count("Yüksek Risk")
+            riskli_sayisi = durumlar.count("Riskli")
+            dusuk_risk_sayisi = durumlar.count("Düşük Risk")
+            risk_yok_sayisi = durumlar.count("Risk Yok")
+            
+            st.subheader("📊 Sınıf Genel Risk İstatistikleri")
+            m1, m2, m3, m4, m5 = st.columns(5)
+            m1.metric("Mevcut", toplam_ogrenci)
+            m2.metric("🚨 Yüksek Risk", yuksek_risk_sayisi)
+            m3.metric("⚠️ Riskli", riskli_sayisi)
+            m4.metric("💡 Düşük Risk", dusuk_risk_sayisi)
+            m5.metric("✅ Risk Yok", risk_yok_sayisi)
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            def renk_ver(val):
+                if val == "Yüksek Risk": return 'background-color: rgba(255, 75, 75, 0.4)'
+                elif val == "Riskli": return 'background-color: rgba(255, 165, 0, 0.4)'
+                elif val == "Düşük Risk": return 'background-color: rgba(255, 255, 0, 0.2)'
+                elif val == "Risk Yok": return 'background-color: rgba(0, 128, 0, 0.4)'
+                return ''
+
+            if hasattr(df_yuklenen.style, "map"):
+                st.dataframe(df_yuklenen.style.map(renk_ver, subset=['Risk Durumu']))
+            else:
+                st.dataframe(df_yuklenen.style.applymap(renk_ver, subset=['Risk Durumu']))
+                
+            csv_analiz = df_yuklenen.to_csv(index=False, sep=';')
+            
+            ozet_rapor_metni = (
+                "\n\n"
+                "=== YAPAY ZEKA SINIF GENEL RİSK ÖZETİ ===\n"
+                f"Toplam Analiz Edilen Öğrenci Sayısı;{toplam_ogrenci}\n"
+                f"🚨 Yüksek Riskli Öğrenci Sayısı;{yuksek_risk_sayisi}\n"
+                f"⚠️ Riskli Öğrenci Sayısı;{riskli_sayisi}\n"
+                f"💡 Düşük Riskli Öğrenci Sayısı;{dusuk_risk_sayisi}\n"
+                f"✅ Risk Faktörü Bulunmayan Öğrenci Sayısı;{risk_yok_sayisi}\n"
+            )
+            
+            indirme_verisi = (csv_analiz + ozet_rapor_metni).encode('utf-8-sig')
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.download_button(
+                label="📥 Analiz Raporunu İndir (Özet Verileri Dahil)",
+                data=indirme_verisi,
+                file_name='SmartClass_Sınıf_Analiz_Raporu.csv',
+                mime='text/csv',
+            )
+            
+        except Exception as e:
+            st.error(f"🚨 Hata detayı: {e}")
