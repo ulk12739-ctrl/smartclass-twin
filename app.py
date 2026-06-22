@@ -208,4 +208,4 @@ else:
             uyari_sayisi += 1
 
         if uyari_sayisi == 0:
-            st.success("🟢 BAŞARILI PROFİL: Tüm kriterler hedef seviyede
+            st.success("🟢 BAŞARILI PROFİL: Tüm kriterler hedef seviyede")
