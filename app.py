@@ -211,7 +211,7 @@ else:
         
         # -----> HATA BURADAYDI, KRİTİK RİSK İÇİN ŞART EKLENDİ! <-----
         if durum == "Kritik Risk": 
-            st.error(f"☠️ GENEL DURUM: {durum}")
+            st.error(f"🚨 GENEL DURUM: {durum}")
         elif durum == "Yüksek Risk": 
             st.error(f"🚨 GENEL DURUM: {durum}")
         elif durum == "Riskli": 
