@@ -393,7 +393,7 @@ else:
             # -----> KOLON SAYISI 5'TEN 6'YA ÇIKARILDI <-----
             m1, m2, m3, m4, m5, m6 = st.columns(6)
             m1.metric("Mevcut", toplam_ogrenci)
-            m2.metric("☠️ Kritik", kritik_risk_sayisi)
+            m2.metric("🚨 Kritik", kritik_risk_sayisi)
             m3.metric("🚨 Yüksek", yuksek_risk_sayisi)
             m4.metric("⚠️ Riskli", riskli_sayisi)
             m5.metric("💡 Düşük", dusuk_risk_sayisi)
