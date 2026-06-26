@@ -420,7 +420,7 @@ else:
                 "\n\n"
                 "=== YAPAY ZEKA SINIF GENEL RİSK ÖZETİ ===\n"
                 f"Toplam Analiz Edilen Öğrenci Sayısı;{toplam_ogrenci}\n"
-                f"☠️ Kritik Riskli Öğrenci Sayısı;{kritik_risk_sayisi}\n" 
+                f"🚨 Kritik Riskli Öğrenci Sayısı;{kritik_risk_sayisi}\n" 
                 f"🚨 Yüksek Riskli Öğrenci Sayısı;{yuksek_risk_sayisi}\n"
                 f"⚠️ Riskli Öğrenci Sayısı;{riskli_sayisi}\n"
                 f"💡 Düşük Riskli Öğrenci Sayısı;{dusuk_risk_sayisi}\n"
