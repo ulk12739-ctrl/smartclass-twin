@@ -96,9 +96,10 @@ else:
             nedenler.append(f"Performans Düşüşü ({ilk_not} -> {ikinci_not})")
 
         # GENEL DURUM ETİKETİ
-        if puan >= 70: durum = "Yüksek Risk"
-        elif puan >= 45: durum = "Riskli"
-        elif puan >= 20: durum = "Düşük Risk"
+        if puan >= 85: durum = "Kritik Risk"
+        elif puan >= 50: durum = "Yüksek Risk"
+        elif puan >= 30: durum = "Riskli"
+        elif puan >= 15: durum = "Düşük Risk"
         else: durum = "Risk Yok"
             
         gerekce = ", ".join(nedenler) if nedenler else "Belirgin bir risk faktörü bulunamadı."
