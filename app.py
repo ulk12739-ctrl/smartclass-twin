@@ -6,14 +6,10 @@ from sklearn import tree
 from streamlit_extras.let_it_rain import rain
 import plotly.graph_objects as go
 
-# ==================================================
-# SAYFA AYARLARI (En üstte kalmalı)
-# ==================================================
+
 st.set_page_config(page_title="SmartClass Twin", page_icon="🏫", layout="centered")
 
-# ==================================================
-# SABİT ÜST BİLGİ (HEADER) - HER EKRANDA GÖRÜNÜR
-# ==================================================
+
 col_logo_sol, col_baslik, col_logo_sag = st.columns([1, 3, 1])
 
 with col_logo_sol:
@@ -28,15 +24,11 @@ with col_logo_sag:
 
 st.markdown("---")
 
-# ==================================================
-# GİRİŞ KONTROLÜ (SESSION STATE)
-# ==================================================
+
 if "giris_yapildi" not in st.session_state:
     st.session_state["giris_yapildi"] = False
 
-# ==================================================
-# 1. EKRAN: GİRİŞ PANELİ
-# ==================================================
+
 if not st.session_state["giris_yapildi"]:
     st.markdown("<h3 style='text-align: center;'>🔐 Sistem Girişi</h3>", unsafe_allow_html=True)
     
@@ -51,13 +43,11 @@ if not st.session_state["giris_yapildi"]:
             else:
                 st.error("🚨 Hatalı kullanıcı adı veya şifre!")
 
-# ==================================================
-# 2. EKRAN: ANA UYGULAMA (Giriş Yapılınca)
-# ==================================================
+
 else:
     st.write("Öğrencinin verilerini girerek yapay zeka ve ağırlıklı risk puanı analizini anında görebilirsiniz.")
     
-    # HESAPLAMA MOTORU (KADEMELİ RİSK GEREKÇELERİ EKLENDİ)
+    # HESAPLAMA MOTORU
     def risk_hesapla(ilk_not, ikinci_not, devamsizlik, odev_yuzdesi, katilim_yuzdesi):
         nedenler = []
         not_ort = (ilk_not + ikinci_not) / 2
@@ -69,7 +59,7 @@ else:
         if puan < 0: puan = 0
         puan = round(puan, 2)
 
-        # HASSAS VE KADEMELİ GEREKÇE LİSTESİ
+        
         if not_ort < 50: 
             nedenler.append("Akademik Yüksek Risk")
         elif not_ort < 70: 
@@ -95,7 +85,7 @@ else:
         if performans_dususu > 0: 
             nedenler.append(f"Performans Düşüşü ({ilk_not} -> {ikinci_not})")
 
-        # GENEL DURUM ETİKETİ
+       
         if puan >= 85: durum = "Kritik Risk"
         elif puan >= 50: durum = "Yüksek Risk"
         elif puan >= 30: durum = "Riskli"
@@ -105,14 +95,14 @@ else:
         gerekce = ", ".join(nedenler) if nedenler else "Belirgin bir risk faktörü bulunamadı."
         return puan, durum, gerekce
 
-    # OTURMA DÜZENİ VE PERFORMANS EĞRİSİ ÖNERİ MOTORU
+   
     def oturma_onerisi_yap(ilk_not, ikinci_not, duzen2):
         performans_egrisi = ilk_not - ikinci_not
         mesaj = ""
         ikon = "💡"
         durum_analizi = ""
 
-        if performans_egrisi > 0: # PERFORMANS DÜŞÜŞÜ (+)
+        if performans_egrisi > 0: 
             durum_analizi = f"📉 Performans Eğrisi: +{performans_egrisi} (Düşüş Tespit Edildi)"
             if duzen2 == "Geleneksel Sıra":
                 mesaj = "Geleneksel düzende başarı kaybı yaşanmış. Sosyal etkileşimi artırmak için üst verim kademeleri olan 'Yarım Daire' veya 'Küme Düzeni'ne geçiş önerilir."
@@ -120,23 +110,23 @@ else:
             elif duzen2 == "Yarım Daire":
                 mesaj = "Yarım daire düzeninde performans düşüşü sürüyor. En üst etkileşim seviyesi olan 'Küme Düzeni'ne geçiş yapılması tavsiye edilir."
                 ikon = "⚠️"
-            else: # Zaten Küme Düzenindeyse
+            else: 
                 mesaj = "En verimli düzen olan Küme Düzeninde dahi düşüş gözlemleniyor. Durumun akademik değil psikolojik/rehberlik kaynaklı olduğu düşünülerek rehberlik servisine bilgi verilmelidir."
                 ikon = "🛑"
         
-        elif performans_egrisi < 0: # PERFORMANS ARTIŞI (-)
+        elif performans_egrisi < 0: 
             durum_analizi = f"📈 Performans Eğrisi: {performans_egrisi} (Artış Tespit Edildi)"
             mesaj = f"Başarı artışı sağlandı! Mevcut '{duzen2}' yerleşimi öğrenci üzerinde pozitif etki yaratmış. Bu düzenin bir süre daha korunması önerilir."
             ikon = "✅"
         
-        else: # SABİT
+        else:
             durum_analizi = "📊 Performans Eğrisi: 0 (Değişim Yok)"
             mesaj = "Başarı durumu stabil. Öğrenciyi daha aktif kılmak adına bir üst etkileşimli oturma düzeni denenebilir."
             ikon = "ℹ️"
             
         return durum_analizi, mesaj, ikon
 
-    # ARKA PLAN: YAPAY ZEKA MODELİNİN EĞİTİLMESİ
+    
     @st.cache_resource
     def modeli_egit():
         veri_egitim = {
@@ -162,15 +152,15 @@ else:
 
     model = modeli_egit()
 
-    # SOL MENÜ (SIDEBAR): VERİ GİRİŞ PANELİ
+    
     st.sidebar.header("⚙️ Veri Giriş Paneli")
     ogrenci_adi = st.sidebar.text_input("Öğrenci Tanımlayıcı", value="Öğrenci Örnek")
     
-    # --- SINAV 1 VE DÜZENİ ---
+    
     ilk_not = st.sidebar.number_input("1. Sınav Notu", 0, 100, 95)
     duzen1 = st.sidebar.selectbox("1. Sınav Dönemi Oturma Düzeni", ["Geleneksel Sıra", "Yarım Daire", "Küme Düzeni"])
     
-    # --- SINAV 2 VE DÜZENİ ---
+   
     ikinci_not = st.sidebar.number_input("2. Sınav Notu", 0, 100, 85)
     duzen2 = st.sidebar.selectbox("2. Sınav Dönemi Oturma Düzeni", ["Geleneksel Sıra", "Yarım Daire", "Küme Düzeni"])
     
@@ -184,12 +174,12 @@ else:
         st.session_state["giris_yapildi"] = False
         st.rerun()
 
-    # ANALİZ BUTONU VE SONUÇLARIN GÖSTERİLMESİ
+    
     if st.button("📊 Öğrenci Risk Analizini Yap", type="primary", use_container_width=True):
         puan, durum, gerekce = risk_hesapla(ilk_not, ikinci_not, devamsizlik, odev_yuzdesi, katilim_yuzdesi)
         egri_metni, oneri_mesaji, oneri_ikon = oturma_onerisi_yap(ilk_not, ikinci_not, duzen2)
 
-        # YAPAY ZEKA / KARAR AĞACI ÖN TAHMİNİ
+        
         not_ort = (ilk_not + ikinci_not) / 2
         performans_dususu = ilk_not - ikinci_not
 
@@ -209,7 +199,7 @@ else:
         st.subheader(f"📋 {ogrenci_adi} İçin Risk Analiz Raporu")
         st.metric(label="Hesaplanan Risk Puanı", value=f"{puan} / 100")
         
-        # -----> HATA BURADAYDI, KRİTİK RİSK İÇİN ŞART EKLENDİ! <-----
+       
         if durum == "Kritik Risk": 
             st.error(f"🚨 GENEL DURUM: {durum}")
         elif durum == "Yüksek Risk": 
@@ -222,7 +212,7 @@ else:
             st.success(f"✅ GENEL DURUM: {durum}")
             rain(emoji="🎉", font_size=40, falling_speed=5, animation_length=3)
 
-        # KARAR AĞACI MODELİ SONUCU
+       
         st.subheader("🤖 Yapay Zekâ Ön Tahmini")
 
         if ai_tahmin == 1:
@@ -248,12 +238,12 @@ else:
             
         st.info(f"🔍 **Tespit Edilen Risk Gerekçeleri:** {gerekce}")
 
-        # STRATEJİK ÖNERİ VE PERFORMANS EĞRİSİ
+        
         st.subheader("🎯 Stratejik Yerleşim Önerisi")
         st.info(f"**{egri_metni}**")
         st.success(f"{oneri_ikon} **Yerleşim Tavsiyesi:** {oneri_mesaji}")
         
-        # PEDAGOJİK ÖNERİLER 
+        
         st.subheader("📋 Profil Yorumlama ve Öneriler")
         not_ort = (ilk_not + ikinci_not) / 2
         uyari_sayisi = 0
@@ -283,9 +273,7 @@ else:
         if uyari_sayisi == 0:
             st.success("🟢 BAŞARILI PROFİL: Tüm kriterler hedef seviyede. Öğrenci tebrik edilmeli.")
 
-        # ==================================================
-        # GÖRSEL PERFORMANS GRAFİĞİ VE RADAR
-        # ==================================================
+       
         st.markdown("---")
         st.subheader("📊 Öğrenci Performans & Profil Radarı")
         
@@ -327,9 +315,7 @@ else:
             )
             st.plotly_chart(fig, use_container_width=True)
 
-    # ==================================================
-    # TOPLU SINIF ANALİZİ
-    # ==================================================
+   
     st.markdown("---")
     st.header("📁 Toplu Sınıf Analizi")
     st.write("Sınıfınızın verilerini tek seferde analiz etmek için önce aşağıdaki şablonu indirin, öğrenci verilerini doldurun ve ardından sisteme geri yükleyin.")
@@ -382,7 +368,7 @@ else:
             st.success("✅ Yapay Zeka sınıfınızı saniyeler içinde analiz etti! İşte sonuçlar:")
             
             toplam_ogrenci = len(df_yuklenen)
-            # -----> HATA BURADAYDI, KRİTİK RİSK İÇİN SAYAÇ EKLENDİ! <-----
+           
             kritik_risk_sayisi = durumlar.count("Kritik Risk")
             yuksek_risk_sayisi = durumlar.count("Yüksek Risk")
             riskli_sayisi = durumlar.count("Riskli")
@@ -390,7 +376,7 @@ else:
             risk_yok_sayisi = durumlar.count("Risk Yok")
             
             st.subheader("📊 Sınıf Genel Risk İstatistikleri")
-            # -----> KOLON SAYISI 5'TEN 6'YA ÇIKARILDI <-----
+           
             m1, m2, m3, m4, m5, m6 = st.columns(6)
             m1.metric("Mevcut", toplam_ogrenci)
             m2.metric("🚨 Kritik", kritik_risk_sayisi)
@@ -401,8 +387,8 @@ else:
             st.markdown("<br>", unsafe_allow_html=True)
             
             def renk_ver(val):
-                # -----> HATA BURADAYDI, KRİTİK RİSK İÇİN RENK EKLENDİ! <-----
-                if val == "Kritik Risk": return 'background-color: rgba(220, 20, 60, 0.6)' # Koyu Kırmızı
+               
+                if val == "Kritik Risk": return 'background-color: rgba(220, 20, 60, 0.6)' 
                 elif val == "Yüksek Risk": return 'background-color: rgba(255, 75, 75, 0.4)'
                 elif val == "Riskli": return 'background-color: rgba(255, 165, 0, 0.4)'
                 elif val == "Düşük Risk": return 'background-color: rgba(255, 255, 0, 0.2)'
