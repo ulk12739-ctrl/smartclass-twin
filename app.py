@@ -139,18 +139,24 @@ else:
     @st.cache_resource
     def modeli_egit():
         veri_egitim = {
-            'Son_Hafta_Devamsizlik': [1, 5, 0, 4, 1, 6, 2, 12],
+            'Devamsizlik': [1, 5, 0, 4, 1, 6, 2, 12],
             'Sinav_1': [80, 50, 95, 60, 75, 40, 90, 55],
             'Sinav_2': [90, 40, 85, 40, 65, 20, 92, 45],
             'Odev_Tamamlama_Yuzdesi': [90, 40, 100, 50, 80, 20, 95, 30],
+            'Katilim_Yuzdesi': [85, 45, 95, 55, 75, 30, 90, 40],
             'Risk_Durumu': [0, 1, 0, 1, 0, 1, 0, 1]
         }
+
         df = pd.DataFrame(veri_egitim)
         df['Not_Ortalamasi'] = (df['Sinav_1'] + df['Sinav_2']) / 2
-        X = df[['Son_Hafta_Devamsizlik', 'Not_Ortalamasi', 'Odev_Tamamlama_Yuzdesi']]
+        df['Performans_Dususu'] = df['Sinav_1'] - df['Sinav_2']
+
+        X = df[['Devamsizlik', 'Not_Ortalamasi', 'Odev_Tamamlama_Yuzdesi', 'Katilim_Yuzdesi', 'Performans_Dususu']]
         y = df['Risk_Durumu']
+
         model = DecisionTreeClassifier(max_depth=3, random_state=42)
         model.fit(X, y)
+
         return model
 
     model = modeli_egit()
@@ -181,6 +187,23 @@ else:
     if st.button("📊 Öğrenci Risk Analizini Yap", type="primary", use_container_width=True):
         puan, durum, gerekce = risk_hesapla(ilk_not, ikinci_not, devamsizlik, odev_yuzdesi, katilim_yuzdesi)
         egri_metni, oneri_mesaji, oneri_ikon = oturma_onerisi_yap(ilk_not, ikinci_not, duzen2)
+
+        # YAPAY ZEKA / KARAR AĞACI ÖN TAHMİNİ
+        not_ort = (ilk_not + ikinci_not) / 2
+        performans_dususu = ilk_not - ikinci_not
+
+        ai_girdi = pd.DataFrame({
+            'Devamsizlik': [devamsizlik],
+            'Not_Ortalamasi': [not_ort],
+            'Odev_Tamamlama_Yuzdesi': [odev_yuzdesi],
+            'Katilim_Yuzdesi': [katilim_yuzdesi],
+            'Performans_Dususu': [performans_dususu]
+        })
+
+        ai_tahmin = model.predict(ai_girdi)[0]
+
+        risk_index = list(model.classes_).index(1)
+        risk_olasiligi = model.predict_proba(ai_girdi)[0][risk_index] * 100
         
         st.subheader(f"📋 {ogrenci_adi} İçin Risk Analiz Raporu")
         st.metric(label="Hesaplanan Risk Puanı", value=f"{puan} / 100")
@@ -191,6 +214,30 @@ else:
         else: 
             st.success(f"✅ GENEL DURUM: {durum}")
             rain(emoji="🎉", font_size=40, falling_speed=5, animation_length=3)
+
+        # KARAR AĞACI MODELİ SONUCU
+        st.subheader("🤖 Yapay Zekâ Ön Tahmini")
+
+        if ai_tahmin == 1:
+            st.warning(f"Karar ağacı modeline göre öğrenci risk grubunda olabilir. Model risk skoru: %{risk_olasiligi:.1f}")
+        else:
+            st.success(f"Karar ağacı modeline göre öğrenci düşük risk grubunda görünüyor. Model risk skoru: %{risk_olasiligi:.1f}")
+
+        st.caption("Not: Bu bölüm destekleyici yapay zekâ ön tahminidir. Nihai risk puanı, açıklanabilir ağırlıklı risk formülü ve koşullu değerlendirme sistemiyle hesaplanmaktadır.")
+
+        with st.expander("🌳 Karar Ağacı Modelini Görüntüle"):
+            fig_tree, ax_tree = plt.subplots(figsize=(12, 6))
+
+            tree.plot_tree(
+                model,
+                feature_names=['Devamsızlık', 'Not Ortalaması', 'Ödev Yüzdesi', 'Katılım Yüzdesi', 'Performans Düşüşü'],
+                class_names=['Risk Yok', 'Risk Var'],
+                filled=True,
+                rounded=True,
+                ax=ax_tree
+            )
+
+            st.pyplot(fig_tree)
             
         st.info(f"🔍 **Tespit Edilen Risk Gerekçeleri:** {gerekce}")
 
