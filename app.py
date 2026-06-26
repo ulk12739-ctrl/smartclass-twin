@@ -209,10 +209,16 @@ else:
         st.subheader(f"📋 {ogrenci_adi} İçin Risk Analiz Raporu")
         st.metric(label="Hesaplanan Risk Puanı", value=f"{puan} / 100")
         
-        if durum == "Yüksek Risk": st.error(f"🚨 GENEL DURUM: {durum}")
-        elif durum == "Riskli": st.warning(f"⚠️ GENEL DURUM: {durum}")
-        elif durum == "Düşük Risk": st.info(f"💡 GENEL DURUM: {durum}")
-        else: 
+        # -----> HATA BURADAYDI, KRİTİK RİSK İÇİN ŞART EKLENDİ! <-----
+        if durum == "Kritik Risk": 
+            st.error(f"☠️ GENEL DURUM: {durum}")
+        elif durum == "Yüksek Risk": 
+            st.error(f"🚨 GENEL DURUM: {durum}")
+        elif durum == "Riskli": 
+            st.warning(f"⚠️ GENEL DURUM: {durum}")
+        elif durum == "Düşük Risk": 
+            st.info(f"💡 GENEL DURUM: {durum}")
+        elif durum == "Risk Yok": 
             st.success(f"✅ GENEL DURUM: {durum}")
             rain(emoji="🎉", font_size=40, falling_speed=5, animation_length=3)
 
@@ -376,22 +382,28 @@ else:
             st.success("✅ Yapay Zeka sınıfınızı saniyeler içinde analiz etti! İşte sonuçlar:")
             
             toplam_ogrenci = len(df_yuklenen)
+            # -----> HATA BURADAYDI, KRİTİK RİSK İÇİN SAYAÇ EKLENDİ! <-----
+            kritik_risk_sayisi = durumlar.count("Kritik Risk")
             yuksek_risk_sayisi = durumlar.count("Yüksek Risk")
             riskli_sayisi = durumlar.count("Riskli")
             dusuk_risk_sayisi = durumlar.count("Düşük Risk")
             risk_yok_sayisi = durumlar.count("Risk Yok")
             
             st.subheader("📊 Sınıf Genel Risk İstatistikleri")
-            m1, m2, m3, m4, m5 = st.columns(5)
+            # -----> KOLON SAYISI 5'TEN 6'YA ÇIKARILDI <-----
+            m1, m2, m3, m4, m5, m6 = st.columns(6)
             m1.metric("Mevcut", toplam_ogrenci)
-            m2.metric("🚨 Yüksek Risk", yuksek_risk_sayisi)
-            m3.metric("⚠️ Riskli", riskli_sayisi)
-            m4.metric("💡 Düşük Risk", dusuk_risk_sayisi)
-            m5.metric("✅ Risk Yok", risk_yok_sayisi)
+            m2.metric("☠️ Kritik", kritik_risk_sayisi)
+            m3.metric("🚨 Yüksek", yuksek_risk_sayisi)
+            m4.metric("⚠️ Riskli", riskli_sayisi)
+            m5.metric("💡 Düşük", dusuk_risk_sayisi)
+            m6.metric("✅ Yok", risk_yok_sayisi)
             st.markdown("<br>", unsafe_allow_html=True)
             
             def renk_ver(val):
-                if val == "Yüksek Risk": return 'background-color: rgba(255, 75, 75, 0.4)'
+                # -----> HATA BURADAYDI, KRİTİK RİSK İÇİN RENK EKLENDİ! <-----
+                if val == "Kritik Risk": return 'background-color: rgba(220, 20, 60, 0.6)' # Koyu Kırmızı
+                elif val == "Yüksek Risk": return 'background-color: rgba(255, 75, 75, 0.4)'
                 elif val == "Riskli": return 'background-color: rgba(255, 165, 0, 0.4)'
                 elif val == "Düşük Risk": return 'background-color: rgba(255, 255, 0, 0.2)'
                 elif val == "Risk Yok": return 'background-color: rgba(0, 128, 0, 0.4)'
@@ -408,6 +420,7 @@ else:
                 "\n\n"
                 "=== YAPAY ZEKA SINIF GENEL RİSK ÖZETİ ===\n"
                 f"Toplam Analiz Edilen Öğrenci Sayısı;{toplam_ogrenci}\n"
+                f"☠️ Kritik Riskli Öğrenci Sayısı;{kritik_risk_sayisi}\n" 
                 f"🚨 Yüksek Riskli Öğrenci Sayısı;{yuksek_risk_sayisi}\n"
                 f"⚠️ Riskli Öğrenci Sayısı;{riskli_sayisi}\n"
                 f"💡 Düşük Riskli Öğrenci Sayısı;{dusuk_risk_sayisi}\n"
