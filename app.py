@@ -47,7 +47,7 @@ if not st.session_state["giris_yapildi"]:
 else:
     st.write("Öğrencinin verilerini girerek yapay zeka ve ağırlıklı risk puanı analizini anında görebilirsiniz.")
     
-    # HESAPLAMA MOTORU
+   
     def risk_hesapla(ilk_not, ikinci_not, devamsizlik, odev_yuzdesi, katilim_yuzdesi):
         nedenler = []
         not_ort = (ilk_not + ikinci_not) / 2
@@ -94,6 +94,132 @@ else:
             
         gerekce = ", ".join(nedenler) if nedenler else "Belirgin bir risk faktörü bulunamadı."
         return puan, durum, gerekce
+
+    def sosyal_risk_hesapla(
+    grup_katilimi,
+    akran_destegi,
+    arkadas_baglantisi,
+    ogretmen_iletisimi,
+    sosyal_izolasyon,
+    oturma_konumu
+):
+    nedenler = []
+    oneriler = []
+
+    if grup_katilimi <= 2:
+        grup_riski = 90
+        nedenler.append("Grup çalışmalarına katılım düşüktür.")
+        oneriler.append("Küçük grup görevlerinde sorumluluk verilebilir.")
+    elif grup_katilimi == 3:
+        grup_riski = 60
+    elif grup_katilimi == 4:
+        grup_riski = 30
+    else:
+        grup_riski = 10
+
+    if akran_destegi <= 2:
+        akran_riski = 90
+        nedenler.append("Akran desteği sınırlıdır.")
+        oneriler.append("Destekleyici bir akranla eşleştirme düşünülebilir.")
+    elif akran_destegi == 3:
+        akran_riski = 60
+    elif akran_destegi == 4:
+        akran_riski = 30
+    else:
+        akran_riski = 10
+
+    if arkadas_baglantisi == 0:
+        baglanti_riski = 90
+        nedenler.append("Sınıf içi arkadaş bağlantısı düşüktür.")
+        oneriler.append("Grup içinde aktif bir rol verilmesi düşünülebilir.")
+    elif arkadas_baglantisi <= 2:
+        baglanti_riski = 60
+        nedenler.append("Sınıf içi arkadaş bağlantısı düşüktür.")
+        oneriler.append("Grup içinde aktif bir rol verilmesi düşünülebilir.")
+    elif arkadas_baglantisi <= 4:
+        baglanti_riski = 30
+    else:
+        baglanti_riski = 10
+
+    if ogretmen_iletisimi <= 2:
+        iletisim_riski = 90
+        nedenler.append("Öğretmenle iletişim düzeyi düşüktür.")
+        oneriler.append("Kısa bireysel öğretmen görüşmeleri planlanabilir.")
+    elif ogretmen_iletisimi == 3:
+        iletisim_riski = 60
+    elif ogretmen_iletisimi == 4:
+        iletisim_riski = 30
+    else:
+        iletisim_riski = 10
+
+    if sosyal_izolasyon >= 5:
+        izolasyon_riski = 90
+        nedenler.append("Sosyal izolasyon belirtisi gözlenmektedir.")
+        oneriler.append("Rehberlik servisi tarafından gözlem önerilebilir.")
+    elif sosyal_izolasyon == 4:
+        izolasyon_riski = 70
+        nedenler.append("Sosyal izolasyon belirtisi gözlenmektedir.")
+        oneriler.append("Rehberlik servisi tarafından gözlem önerilebilir.")
+    elif sosyal_izolasyon == 3:
+        izolasyon_riski = 50
+    else:
+        izolasyon_riski = 20
+
+    oturma_riskleri = {
+        "Ön": 10,
+        "Orta": 30,
+        "Kenar": 50,
+        "Arka": 60
+    }
+
+    oturma_riski = oturma_riskleri.get(oturma_konumu, 30)
+
+    if oturma_konumu == "Arka":
+        nedenler.append(
+            "Arka sıradaki konum sınıf içi etkileşim açısından ayrıca izlenebilir."
+        )
+        oneriler.append(
+            "Öğrencinin farklı bir oturma konumundaki etkileşimi gözlemlenebilir."
+        )
+
+    sosyal_puan = (
+        grup_riski * 0.20 +
+        akran_riski * 0.20 +
+        baglanti_riski * 0.25 +
+        iletisim_riski * 0.15 +
+        izolasyon_riski * 0.15 +
+        oturma_riski * 0.05
+    )
+
+    sosyal_puan = round(sosyal_puan, 2)
+
+    if sosyal_puan >= 70:
+        sosyal_durum = "Yüksek Sosyal Risk"
+    elif sosyal_puan >= 40:
+        sosyal_durum = "Orta Sosyal Risk"
+    else:
+        sosyal_durum = "Düşük Sosyal Risk"
+
+    if not nedenler:
+        nedenler = ["Belirgin bir sosyal risk göstergesi bulunmamaktadır."]
+
+    if not oneriler:
+        oneriler = ["Mevcut sosyal uyumun izlenerek desteklenmesi önerilir."]
+
+    return (
+        sosyal_puan,
+        sosyal_durum,
+        nedenler,
+        oneriler,
+        {
+            "Grup Katılımı Riski": grup_riski,
+            "Akran Desteği Riski": akran_riski,
+            "Arkadaş Bağlantısı Riski": baglanti_riski,
+            "Öğretmen İletişimi Riski": iletisim_riski,
+            "Sosyal İzolasyon Riski": izolasyon_riski,
+            "Oturma Konumu Riski": oturma_riski
+        }
+    )
 
    
     def oturma_onerisi_yap(ilk_not, ikinci_not, duzen2):
