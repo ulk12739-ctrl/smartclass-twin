@@ -343,16 +343,33 @@ else:
             sosyal_durum = "Düşük Sosyal Risk"
 
         if not nedenler:
-            nedenler = [
-                "Belirgin bir sosyal risk göstergesi "
-                "bulunmamaktadır."
-            ]
+            if sosyal_durum == "Yüksek Sosyal Risk":
+                nedenler = [
+                    "Sosyal risk puanı yüksek düzeydedir. Tek bir baskın neden yerine, "
+                    "birden fazla sosyal göstergenin birleşik etkisi izlenmelidir."
+                ]
+            elif sosyal_durum == "Orta Sosyal Risk":
+                nedenler = [
+                    "Sosyal etkileşim göstergeleri genel olarak orta düzeyde destek ihtiyacına işaret etmektedir."
+                ]
+            else:
+                nedenler = [
+                    "Belirgin bir sosyal risk göstergesi bulunmamaktadır."
+                ]
 
         if not oneriler:
-            oneriler = [
-                "Mevcut sosyal uyumun izlenerek "
-                "desteklenmesi önerilir."
-            ]
+            if sosyal_durum == "Yüksek Sosyal Risk":
+                oneriler = [
+                    "Öğretmen gözlemiyle birlikte sosyal etkileşim göstergelerinin yakından izlenmesi önerilir."
+                ]
+            elif sosyal_durum == "Orta Sosyal Risk":
+                oneriler = [
+                    "Öğrencinin sosyal etkileşimi düzenli olarak izlenebilir ve gerekli görülen alanlarda destek sağlanabilir."
+                ]
+            else:
+                oneriler = [
+                    "Mevcut sosyal uyumun izlenerek desteklenmesi önerilir."
+                ]
 
         risk_bilesenleri = {
             "Grup Katılımı Riski": grup_riski,
@@ -397,34 +414,39 @@ else:
             return (
                 "Çoklu Destek",
                 "🚨",
-                "Öğrencinin hem akademik hem sosyal göstergelerinde yüksek destek ihtiyacı görülmektedir."
+                f"Akademik durum '{akademik_durum}', sosyal durum ise '{sosyal_durum}' olarak hesaplandı. "
+                "Her iki alanın birlikte öğretmen tarafından değerlendirilmesi önerilir."
             )
 
         elif akademik_yuksek:
             return (
                 "Akademik Destek",
                 "📚",
-                "Öncelik akademik risk göstergelerinin öğretmen tarafından değerlendirilmesidir."
+                f"Akademik durum '{akademik_durum}', sosyal durum ise '{sosyal_durum}'. "
+                "Önceliğin akademik risk göstergelerine verilmesi önerilir."
             )
 
         elif sosyal_yuksek:
             return (
                 "Sosyal Destek",
                 "🤝",
-                "Öncelik sosyal etkileşim göstergelerinin öğretmen tarafından değerlendirilmesidir."
+                f"Akademik durum '{akademik_durum}', sosyal durum ise '{sosyal_durum}'. "
+                "Önceliğin sosyal etkileşim göstergelerine verilmesi önerilir."
             )
 
         elif akademik_izleme or sosyal_izleme:
             return (
                 "İzleme",
                 "👀",
-                "Belirgin bir yüksek risk olmasa da öğrencinin gelişiminin düzenli izlenmesi önerilir."
+                f"Akademik durum '{akademik_durum}', sosyal durum ise '{sosyal_durum}'. "
+                "Yüksek düzeyde ortak risk görülmese de öğrencinin gelişiminin düzenli izlenmesi önerilir."
             )
 
         else:
             return (
                 "Rutin Takip",
                 "✅",
+                f"Akademik durum '{akademik_durum}', sosyal durum ise '{sosyal_durum}'. "
                 "Mevcut göstergelerde yüksek destek ihtiyacı görülmemektedir."
             )
 
@@ -889,7 +911,7 @@ else:
         )
 
         st.subheader(
-            "🤖 Yapay Zekâ Ön Tahmini"
+            "🤖 Akademik Yapay Zekâ Ön Tahmini"
         )
 
         if ai_tahmin == 1:
@@ -909,10 +931,9 @@ else:
             )
 
         st.caption(
-            "Not: Bu bölüm destekleyici yapay zekâ ön tahminidir. "
-            "Nihai risk puanı, açıklanabilir ağırlıklı risk "
-            "formülü ve koşullu değerlendirme sistemiyle "
-            "hesaplanmaktadır."
+            "Not: Bu karar ağacı tahmini yalnızca akademik veriler üzerinden çalışan "
+            "destekleyici bir ön tahmindir. Sosyal risk analizi ayrı bir ağırlıklı modelle "
+            "hesaplanır. Nihai değerlendirme öğretmenin pedagojik yorumuyla yapılır."
         )
 
         with st.expander(
@@ -955,6 +976,19 @@ else:
         st.markdown("---")
         st.subheader("🤝 Sosyal Etkileşim Analizi")
 
+        if sosyal_durum == "Yüksek Sosyal Risk":
+            st.error(
+                f"🚨 **Sosyal Değerlendirme:** {sosyal_puan}/100 — {sosyal_durum}"
+            )
+        elif sosyal_durum == "Orta Sosyal Risk":
+            st.warning(
+                f"⚠️ **Sosyal Değerlendirme:** {sosyal_puan}/100 — {sosyal_durum}"
+            )
+        else:
+            st.success(
+                f"✅ **Sosyal Değerlendirme:** {sosyal_puan}/100 — {sosyal_durum}"
+            )
+
         sosyal_sol, sosyal_sag = st.columns([1, 1])
 
         with sosyal_sol:
@@ -967,6 +1001,18 @@ else:
             for oneri in sosyal_oneriler:
                 st.write(f"• {oneri}")
 
+        sirali_bilesenler = sorted(
+            sosyal_bilesenler.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )
+        en_etkili_uc = sirali_bilesenler[:3]
+
+        st.info(
+            "📌 **Öne çıkan sosyal göstergeler:** "
+            + ", ".join([f"{ad}: {deger}/100" for ad, deger in en_etkili_uc])
+        )
+
         st.markdown("**📊 Sosyal Risk Bileşenleri**")
 
         sosyal_grafik_df = pd.DataFrame(
@@ -976,9 +1022,37 @@ else:
             }
         )
 
-        st.bar_chart(
-            sosyal_grafik_df.set_index("Risk Bileşeni"),
-            y="Risk Puanı"
+        kisa_etiketler = {
+            "Grup Katılımı Riski": "Grup Katılımı",
+            "Akran Desteği Riski": "Akran Desteği",
+            "Arkadaş Bağlantısı Riski": "Arkadaş Bağlantısı",
+            "Öğretmen İletişimi Riski": "Öğretmen İletişimi",
+            "Sosyal İzolasyon Riski": "Sosyal İzolasyon",
+            "Oturma Konumu Riski": "Oturma Konumu"
+        }
+
+        sosyal_grafik_gosterim = sosyal_grafik_df.copy()
+        sosyal_grafik_gosterim["Gösterim"] = sosyal_grafik_gosterim["Risk Bileşeni"].map(kisa_etiketler)
+
+        fig_sosyal = go.Figure(
+            go.Bar(
+                x=sosyal_grafik_gosterim["Risk Puanı"],
+                y=sosyal_grafik_gosterim["Gösterim"],
+                orientation="h"
+            )
+        )
+
+        fig_sosyal.update_layout(
+            xaxis_title="Risk Puanı",
+            yaxis_title="",
+            xaxis=dict(range=[0, 100]),
+            margin=dict(l=20, r=20, t=10, b=20),
+            height=360
+        )
+
+        st.plotly_chart(
+            fig_sosyal,
+            use_container_width=True
         )
 
         with st.expander("🧮 Sosyal risk hesabının ayrıntılarını görüntüle"):
