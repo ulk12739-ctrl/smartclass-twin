@@ -14,9 +14,6 @@ st.set_page_config(
 )
 
 
-# ---------------------------------------------------------
-# BAŞLIK VE LOGOLAR
-# ---------------------------------------------------------
 
 col_logo_sol, col_baslik, col_logo_sag = st.columns([1, 3, 1])
 
@@ -43,9 +40,7 @@ with col_logo_sag:
 st.markdown("---")
 
 
-# ---------------------------------------------------------
-# GİRİŞ SİSTEMİ
-# ---------------------------------------------------------
+
 
 if "giris_yapildi" not in st.session_state:
     st.session_state["giris_yapildi"] = False
@@ -84,9 +79,7 @@ else:
     )
 
 
-    # =========================================================
-    # AKADEMİK RİSK HESAPLAMA MOTORU
-    # =========================================================
+
 
     def risk_hesapla(
         ilk_not,
@@ -182,9 +175,6 @@ else:
         return puan, durum, gerekce
 
 
-    # =========================================================
-    # SOSYAL RİSK HESAPLAMA MOTORU
-    # =========================================================
 
     def sosyal_risk_hesapla(
         grup_katilimi,
@@ -389,13 +379,6 @@ else:
         )
 
 
-
-    # =========================================================
-    # GENEL DESTEK DURUMU
-    # Akademik ve sosyal risk ayrı tutulur; burada yalnızca
-    # öğretmenin önceliklendirmesine yardımcı olan ortak özet üretilir.
-    # =========================================================
-
     def genel_destek_durumu_hesapla(akademik_durum, sosyal_durum):
         akademik_yuksek = akademik_durum in [
             "Kritik Risk",
@@ -451,9 +434,6 @@ else:
             )
 
 
-    # =========================================================
-    # OTURMA DÜZENİ ÖNERİSİ
-    # =========================================================
 
     def oturma_onerisi_yap(
         ilk_not,
@@ -546,9 +526,6 @@ else:
         return durum_analizi, mesaj, ikon
 
 
-    # =========================================================
-    # KARAR AĞACI MODELİ
-    # =========================================================
 
     @st.cache_resource
     def modeli_egit():
@@ -609,9 +586,6 @@ else:
     model = modeli_egit()
 
 
-    # =========================================================
-    # SIDEBAR
-    # =========================================================
 
     st.sidebar.header("⚙️ Veri Giriş Paneli")
 
@@ -677,9 +651,6 @@ else:
         5
     )
 
-    # =========================================================
-    # SOSYAL ETKİLEŞİM GİRİŞLERİ
-    # =========================================================
 
     st.sidebar.markdown("---")
 
@@ -747,10 +718,6 @@ else:
         st.rerun()
 
 
-    # =========================================================
-    # TEK ÖĞRENCİ ANALİZİ
-    # =========================================================
-
     if st.button(
         "📊 Öğrenci Risk Analizini Yap",
         type="primary",
@@ -765,7 +732,7 @@ else:
             katilim_yuzdesi
         )
 
-        # YENİ: Aynı buton sosyal risk motorunu da çalıştırıyor
+
         sosyal_puan, sosyal_durum, sosyal_nedenler, sosyal_oneriler, sosyal_bilesenler = sosyal_risk_hesapla(
             grup_katilimi,
             akran_destegi,
@@ -969,9 +936,7 @@ else:
             f"{gerekce}"
         )
 
-        # -----------------------------------------------------
-        # SOSYAL ETKİLEŞİM ANALİZİ
-        # -----------------------------------------------------
+     
 
         st.markdown("---")
         st.subheader("🤝 Sosyal Etkileşim Analizi")
@@ -1274,10 +1239,6 @@ else:
                 use_container_width=True
             )
 
-
-    # =========================================================
-    # TOPLU SINIF ANALİZİ
-    # =========================================================
 
     st.markdown("---")
 
