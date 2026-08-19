@@ -1,4 +1,4 @@
-code = r'''import pandas as pd
+import pandas as pd
 from sklearn.tree import DecisionTreeClassifier
 import streamlit as st
 import matplotlib.pyplot as plt
@@ -1380,13 +1380,3 @@ else:
             st.error(
                 f"🚨 Hata detayı: {e}"
             )
-'''
-
-path = "/mnt/data/app_social_connected.py"
-with open(path, "w", encoding="utf-8") as f:
-    f.write(code)
-
-import py_compile, os
-py_compile.compile(path, doraise=True)
-print(f"Hazır: {path}")
-print(f"Boyut: {os.path.getsize(path)} bayt")
