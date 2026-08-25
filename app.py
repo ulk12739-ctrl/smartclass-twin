@@ -1,5 +1,4 @@
 import pandas as pd
-import json
 from sklearn.tree import DecisionTreeClassifier
 import streamlit as st
 import matplotlib.pyplot as plt
@@ -15,137 +14,9 @@ st.set_page_config(
 )
 
 
-# --------------------------------------------------------------------------
-# SMARTCLASS AI ÖĞRETMEN ASİSTANI
-# --------------------------------------------------------------------------
-# API anahtarı kaynak kodda tutulmaz. Streamlit Secrets içinde
-# GEMINI_API_KEY adıyla saklanır.
-
-if "smartclass_ai_messages" not in st.session_state:
-    st.session_state["smartclass_ai_messages"] = []
-
-if "son_analiz" not in st.session_state:
-    st.session_state["son_analiz"] = None
-
-if "yeni_analiz_yapildi" not in st.session_state:
-    st.session_state["yeni_analiz_yapildi"] = False
-
-
-def smartclass_ai_yanit_al(soru, analiz_baglami, sohbet_gecmisi):
-    """Gemini'den öğretmene yönelik, açıklanabilir ve temkinli bir yanıt alır."""
-
-    try:
-        from google import genai
-        from google.genai import types
-    except ImportError:
-        return (
-            "AI asistanı için gerekli `google-genai` paketi bulunamadı. "
-            "requirements.txt dosyasına `google-genai` satırını ekleyin."
-        )
-
-    try:
-        api_key = st.secrets["GEMINI_API_KEY"]
-    except Exception:
-        return (
-            "Gemini API anahtarı bulunamadı. Streamlit App Settings → Secrets "
-            "bölümünde `GEMINI_API_KEY` tanımlı olmalıdır."
-        )
-
-    # Veri minimizasyonu: Öğrencinin gerçek adı modele gönderilmez.
-    # Arayüzde öğretmen adı görebilir; harici AI servisine yalnızca gerekli
-    # analiz göstergeleri ve takma kimlik gönderilir.
-    ogrenci_tanimlayici = str(analiz_baglami.get("ogrenci_adi", "Seçili öğrenci"))
-    if not ogrenci_tanimlayici.strip().upper().startswith("ST"):
-        modele_giden_ogrenci = "Seçili öğrenci"
-        guvenli_soru = soru.replace(ogrenci_tanimlayici, "[ÖĞRENCİ]")
-    else:
-        modele_giden_ogrenci = ogrenci_tanimlayici
-        guvenli_soru = soru
-
-    guvenli_baglam = {
-        "ogrenci": modele_giden_ogrenci,
-        "akademik_risk_puani": analiz_baglami.get("puan"),
-        "akademik_risk_durumu": analiz_baglami.get("durum"),
-        "akademik_gerekceler": analiz_baglami.get("gerekce"),
-        "sosyal_risk_puani": analiz_baglami.get("sosyal_puan"),
-        "sosyal_risk_durumu": analiz_baglami.get("sosyal_durum"),
-        "sosyal_risk_nedenleri": analiz_baglami.get("sosyal_nedenler"),
-        "sosyal_mudahale_onerileri": analiz_baglami.get("sosyal_oneriler"),
-        "sosyal_risk_bilesenleri": analiz_baglami.get("sosyal_bilesenler"),
-        "genel_destek_durumu": analiz_baglami.get("genel_destek"),
-        "birinci_sinav": analiz_baglami.get("ilk_not"),
-        "ikinci_sinav": analiz_baglami.get("ikinci_not"),
-        "not_ortalamasi": analiz_baglami.get("not_ort"),
-        "devamsizlik_gun": analiz_baglami.get("devamsizlik"),
-        "odev_tamamlama_yuzdesi": analiz_baglami.get("odev_yuzdesi"),
-        "derse_katilim_yuzdesi": analiz_baglami.get("katilim_yuzdesi"),
-        "oturma_duzeni": analiz_baglami.get("duzen2"),
-        "sosyal_oturma_konumu": analiz_baglami.get("oturma_konumu"),
-    }
-
-    # Son birkaç mesaj, konuşmanın bağlamını korur. Gerçek öğrenci adı varsa
-    # burada da modele gönderilmeden önce maskelenir.
-    gecmis_parcalari = []
-    for mesaj in sohbet_gecmisi[-6:]:
-        icerik = str(mesaj.get("content", ""))
-        if not ogrenci_tanimlayici.strip().upper().startswith("ST"):
-            icerik = icerik.replace(ogrenci_tanimlayici, "[ÖĞRENCİ]")
-        rol = "Öğretmen" if mesaj.get("role") == "user" else "Asistan"
-        gecmis_parcalari.append(f"{rol}: {icerik}")
-
-    system_instruction = """
-Sen SmartClass Twin AI Öğretmen Asistanısın.
-Görevin öğretmenin akademik ve sosyal risk analizlerini anlamasına yardımcı olmak,
-öncelikli göstergeleri açıklamak ve uygulanabilir destek seçenekleri sunmaktır.
-
-Kurallar:
-- Yalnızca verilen analiz bağlamına dayan. Veride olmayan bilgi uydurma.
-- Öğrenciyi etiketleme; kesin kişilik, psikolojik durum veya sağlık tanısı koyma.
-- Nedensellik kanıtlanmamışsa "neden oldu" deme; "birlikte gözlenmiştir",
-  "değerlendirilebilir" veya "izlenebilir" gibi temkinli ifadeler kullan.
-- Kanıtlanmamış başarı yüzdesi, risk düşüş yüzdesi veya kesin gelecek tahmini üretme.
-- Akademik risk ile sosyal riski birbirinden ayrı tut.
-- Karar ağacı sonucunu bilimsel olarak doğrulanmış kesin olasılık gibi sunma.
-- Öğretmene 2-5 kısa, uygulanabilir öneri ver; gerekçesini mevcut göstergelerle bağla.
-- Nihai pedagojik kararın öğretmene ait olduğunu gerektiğinde hatırlat.
-- Yanıtları Türkçe, anlaşılır, kısa ve profesyonel yaz.
-""".strip()
-
-    kullanici_icerigi = (
-        "MEVCUT ÖĞRENCİ ANALİZİ:\n"
-        + json.dumps(guvenli_baglam, ensure_ascii=False, default=str, indent=2)
-        + "\n\nSON SOHBET:\n"
-        + ("\n".join(gecmis_parcalari) if gecmis_parcalari else "Henüz önceki mesaj yok.")
-        + "\n\nÖĞRETMENİN YENİ SORUSU:\n"
-        + guvenli_soru
-    )
-
-    client = genai.Client(api_key=api_key)
-    son_hata = None
-
-    # Güncel model ilk tercih; erişim/uyumluluk durumunda daha yaygın modele düşer.
-    for model_adi in ["gemini-3.6-flash", "gemini-2.5-flash"]:
-        try:
-            response = client.models.generate_content(
-                model=model_adi,
-                contents=kullanici_icerigi,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    temperature=0.25,
-                    max_output_tokens=500,
-                ),
-            )
-            if response and response.text:
-                return response.text.strip()
-        except Exception as e:
-            son_hata = e
-
-    return (
-        "Şu anda AI servisine ulaşılamadı. Bağlantı veya model erişimi kontrol edilmeli. "
-        f"Teknik ayrıntı: {son_hata}"
-    )
-
-
+# ---------------------------------------------------------
+# BAŞLIK VE LOGOLAR
+# ---------------------------------------------------------
 
 col_logo_sol, col_baslik, col_logo_sag = st.columns([1, 3, 1])
 
@@ -172,7 +43,9 @@ with col_logo_sag:
 st.markdown("---")
 
 
-
+# ---------------------------------------------------------
+# GİRİŞ SİSTEMİ
+# ---------------------------------------------------------
 
 if "giris_yapildi" not in st.session_state:
     st.session_state["giris_yapildi"] = False
@@ -211,7 +84,9 @@ else:
     )
 
 
-
+    # =========================================================
+    # AKADEMİK RİSK HESAPLAMA MOTORU
+    # =========================================================
 
     def risk_hesapla(
         ilk_not,
@@ -307,6 +182,9 @@ else:
         return puan, durum, gerekce
 
 
+    # =========================================================
+    # SOSYAL RİSK HESAPLAMA MOTORU
+    # =========================================================
 
     def sosyal_risk_hesapla(
         grup_katilimi,
@@ -465,33 +343,16 @@ else:
             sosyal_durum = "Düşük Sosyal Risk"
 
         if not nedenler:
-            if sosyal_durum == "Yüksek Sosyal Risk":
-                nedenler = [
-                    "Sosyal risk puanı yüksek düzeydedir. Tek bir baskın neden yerine, "
-                    "birden fazla sosyal göstergenin birleşik etkisi izlenmelidir."
-                ]
-            elif sosyal_durum == "Orta Sosyal Risk":
-                nedenler = [
-                    "Sosyal etkileşim göstergeleri genel olarak orta düzeyde destek ihtiyacına işaret etmektedir."
-                ]
-            else:
-                nedenler = [
-                    "Belirgin bir sosyal risk göstergesi bulunmamaktadır."
-                ]
+            nedenler = [
+                "Belirgin bir sosyal risk göstergesi "
+                "bulunmamaktadır."
+            ]
 
         if not oneriler:
-            if sosyal_durum == "Yüksek Sosyal Risk":
-                oneriler = [
-                    "Öğretmen gözlemiyle birlikte sosyal etkileşim göstergelerinin yakından izlenmesi önerilir."
-                ]
-            elif sosyal_durum == "Orta Sosyal Risk":
-                oneriler = [
-                    "Öğrencinin sosyal etkileşimi düzenli olarak izlenebilir ve gerekli görülen alanlarda destek sağlanabilir."
-                ]
-            else:
-                oneriler = [
-                    "Mevcut sosyal uyumun izlenerek desteklenmesi önerilir."
-                ]
+            oneriler = [
+                "Mevcut sosyal uyumun izlenerek "
+                "desteklenmesi önerilir."
+            ]
 
         risk_bilesenleri = {
             "Grup Katılımı Riski": grup_riski,
@@ -511,6 +372,13 @@ else:
         )
 
 
+
+    # =========================================================
+    # GENEL DESTEK DURUMU
+    # Akademik ve sosyal risk ayrı tutulur; burada yalnızca
+    # öğretmenin önceliklendirmesine yardımcı olan ortak özet üretilir.
+    # =========================================================
+
     def genel_destek_durumu_hesapla(akademik_durum, sosyal_durum):
         akademik_yuksek = akademik_durum in [
             "Kritik Risk",
@@ -529,43 +397,41 @@ else:
             return (
                 "Çoklu Destek",
                 "🚨",
-                f"Akademik durum '{akademik_durum}', sosyal durum ise '{sosyal_durum}' olarak hesaplandı. "
-                "Her iki alanın birlikte öğretmen tarafından değerlendirilmesi önerilir."
+                "Öğrencinin hem akademik hem sosyal göstergelerinde yüksek destek ihtiyacı görülmektedir."
             )
 
         elif akademik_yuksek:
             return (
                 "Akademik Destek",
                 "📚",
-                f"Akademik durum '{akademik_durum}', sosyal durum ise '{sosyal_durum}'. "
-                "Önceliğin akademik risk göstergelerine verilmesi önerilir."
+                "Öncelik akademik risk göstergelerinin öğretmen tarafından değerlendirilmesidir."
             )
 
         elif sosyal_yuksek:
             return (
                 "Sosyal Destek",
                 "🤝",
-                f"Akademik durum '{akademik_durum}', sosyal durum ise '{sosyal_durum}'. "
-                "Önceliğin sosyal etkileşim göstergelerine verilmesi önerilir."
+                "Öncelik sosyal etkileşim göstergelerinin öğretmen tarafından değerlendirilmesidir."
             )
 
         elif akademik_izleme or sosyal_izleme:
             return (
                 "İzleme",
                 "👀",
-                f"Akademik durum '{akademik_durum}', sosyal durum ise '{sosyal_durum}'. "
-                "Yüksek düzeyde ortak risk görülmese de öğrencinin gelişiminin düzenli izlenmesi önerilir."
+                "Belirgin bir yüksek risk olmasa da öğrencinin gelişiminin düzenli izlenmesi önerilir."
             )
 
         else:
             return (
                 "Rutin Takip",
                 "✅",
-                f"Akademik durum '{akademik_durum}', sosyal durum ise '{sosyal_durum}'. "
                 "Mevcut göstergelerde yüksek destek ihtiyacı görülmemektedir."
             )
 
 
+    # =========================================================
+    # OTURMA DÜZENİ ÖNERİSİ
+    # =========================================================
 
     def oturma_onerisi_yap(
         ilk_not,
@@ -658,6 +524,9 @@ else:
         return durum_analizi, mesaj, ikon
 
 
+    # =========================================================
+    # KARAR AĞACI MODELİ
+    # =========================================================
 
     @st.cache_resource
     def modeli_egit():
@@ -718,6 +587,9 @@ else:
     model = modeli_egit()
 
 
+    # =========================================================
+    # SIDEBAR
+    # =========================================================
 
     st.sidebar.header("⚙️ Veri Giriş Paneli")
 
@@ -783,6 +655,9 @@ else:
         5
     )
 
+    # =========================================================
+    # SOSYAL ETKİLEŞİM GİRİŞLERİ
+    # =========================================================
 
     st.sidebar.markdown("---")
 
@@ -847,38 +722,90 @@ else:
     ):
 
         st.session_state["giris_yapildi"] = False
-        st.session_state["smartclass_ai_messages"] = []
-        st.session_state["son_analiz"] = None
-        st.session_state["yeni_analiz_yapildi"] = False
         st.rerun()
 
 
-    def analiz_raporunu_goster(a):
-        ogrenci_adi = a["ogrenci_adi"]
-        ilk_not = a["ilk_not"]
-        ikinci_not = a["ikinci_not"]
-        duzen2 = a["duzen2"]
-        oturma_konumu = a["oturma_konumu"]
-        odev_yuzdesi = a["odev_yuzdesi"]
-        katilim_yuzdesi = a["katilim_yuzdesi"]
-        devamsizlik = a["devamsizlik"]
-        puan = a["puan"]
-        durum = a["durum"]
-        gerekce = a["gerekce"]
-        sosyal_puan = a["sosyal_puan"]
-        sosyal_durum = a["sosyal_durum"]
-        sosyal_nedenler = a["sosyal_nedenler"]
-        sosyal_oneriler = a["sosyal_oneriler"]
-        sosyal_bilesenler = a["sosyal_bilesenler"]
-        genel_destek = a["genel_destek"]
-        genel_destek_ikon = a["genel_destek_ikon"]
-        genel_destek_aciklama = a["genel_destek_aciklama"]
-        egri_metni = a["egri_metni"]
-        oneri_mesaji = a["oneri_mesaji"]
-        oneri_ikon = a["oneri_ikon"]
-        not_ort = a["not_ort"]
-        ai_tahmin = a["ai_tahmin"]
-        risk_olasiligi = a["risk_olasiligi"]
+    # =========================================================
+    # TEK ÖĞRENCİ ANALİZİ
+    # =========================================================
+
+    if st.button(
+        "📊 Öğrenci Risk Analizini Yap",
+        type="primary",
+        use_container_width=True
+    ):
+
+        puan, durum, gerekce = risk_hesapla(
+            ilk_not,
+            ikinci_not,
+            devamsizlik,
+            odev_yuzdesi,
+            katilim_yuzdesi
+        )
+
+        # YENİ: Aynı buton sosyal risk motorunu da çalıştırıyor
+        sosyal_puan, sosyal_durum, sosyal_nedenler, sosyal_oneriler, sosyal_bilesenler = sosyal_risk_hesapla(
+            grup_katilimi,
+            akran_destegi,
+            arkadas_baglantisi,
+            ogretmen_iletisimi,
+            sosyal_izolasyon,
+            oturma_konumu
+        )
+
+        genel_destek, genel_destek_ikon, genel_destek_aciklama = genel_destek_durumu_hesapla(
+            durum,
+            sosyal_durum
+        )
+
+        egri_metni, oneri_mesaji, oneri_ikon = (
+            oturma_onerisi_yap(
+                ilk_not,
+                ikinci_not,
+                duzen2
+            )
+        )
+
+        not_ort = (
+            ilk_not + ikinci_not
+        ) / 2
+
+        performans_dususu = (
+            ilk_not - ikinci_not
+        )
+
+        ai_girdi = pd.DataFrame({
+
+            "Devamsizlik":
+                [devamsizlik],
+
+            "Not_Ortalamasi":
+                [not_ort],
+
+            "Odev_Tamamlama_Yuzdesi":
+                [odev_yuzdesi],
+
+            "Katilim_Yuzdesi":
+                [katilim_yuzdesi],
+
+            "Performans_Dususu":
+                [performans_dususu]
+        })
+
+        ai_tahmin = model.predict(
+            ai_girdi
+        )[0]
+
+        risk_index = list(
+            model.classes_
+        ).index(1)
+
+        risk_olasiligi = (
+            model.predict_proba(
+                ai_girdi
+            )[0][risk_index]
+            * 100
+        )
 
         st.subheader(
             f"📋 {ogrenci_adi} İçin Risk Analiz Raporu"
@@ -947,11 +874,7 @@ else:
                 f"{genel_destek_aciklama}"
             )
 
-        if (
-            durum == "Risk Yok"
-            and sosyal_durum == "Düşük Sosyal Risk"
-            and st.session_state.get("yeni_analiz_yapildi", False)
-        ):
+        if durum == "Risk Yok" and sosyal_durum == "Düşük Sosyal Risk":
             rain(
                 emoji="🎉",
                 font_size=40,
@@ -966,7 +889,7 @@ else:
         )
 
         st.subheader(
-            "🤖 Akademik Yapay Zekâ Ön Tahmini"
+            "🤖 Yapay Zekâ Ön Tahmini"
         )
 
         if ai_tahmin == 1:
@@ -986,9 +909,10 @@ else:
             )
 
         st.caption(
-            "Not: Bu karar ağacı tahmini yalnızca akademik veriler üzerinden çalışan "
-            "destekleyici bir ön tahmindir. Sosyal risk analizi ayrı bir ağırlıklı modelle "
-            "hesaplanır. Nihai değerlendirme öğretmenin pedagojik yorumuyla yapılır."
+            "Not: Bu bölüm destekleyici yapay zekâ ön tahminidir. "
+            "Nihai risk puanı, açıklanabilir ağırlıklı risk "
+            "formülü ve koşullu değerlendirme sistemiyle "
+            "hesaplanmaktadır."
         )
 
         with st.expander(
@@ -1024,23 +948,12 @@ else:
             f"{gerekce}"
         )
 
-     
+        # -----------------------------------------------------
+        # SOSYAL ETKİLEŞİM ANALİZİ
+        # -----------------------------------------------------
 
         st.markdown("---")
         st.subheader("🤝 Sosyal Etkileşim Analizi")
-
-        if sosyal_durum == "Yüksek Sosyal Risk":
-            st.error(
-                f"🚨 **Sosyal Değerlendirme:** {sosyal_puan}/100 — {sosyal_durum}"
-            )
-        elif sosyal_durum == "Orta Sosyal Risk":
-            st.warning(
-                f"⚠️ **Sosyal Değerlendirme:** {sosyal_puan}/100 — {sosyal_durum}"
-            )
-        else:
-            st.success(
-                f"✅ **Sosyal Değerlendirme:** {sosyal_puan}/100 — {sosyal_durum}"
-            )
 
         sosyal_sol, sosyal_sag = st.columns([1, 1])
 
@@ -1054,18 +967,6 @@ else:
             for oneri in sosyal_oneriler:
                 st.write(f"• {oneri}")
 
-        sirali_bilesenler = sorted(
-            sosyal_bilesenler.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
-        en_etkili_uc = sirali_bilesenler[:3]
-
-        st.info(
-            "📌 **Öne çıkan sosyal göstergeler:** "
-            + ", ".join([f"{ad}: {deger}/100" for ad, deger in en_etkili_uc])
-        )
-
         st.markdown("**📊 Sosyal Risk Bileşenleri**")
 
         sosyal_grafik_df = pd.DataFrame(
@@ -1075,37 +976,9 @@ else:
             }
         )
 
-        kisa_etiketler = {
-            "Grup Katılımı Riski": "Grup Katılımı",
-            "Akran Desteği Riski": "Akran Desteği",
-            "Arkadaş Bağlantısı Riski": "Arkadaş Bağlantısı",
-            "Öğretmen İletişimi Riski": "Öğretmen İletişimi",
-            "Sosyal İzolasyon Riski": "Sosyal İzolasyon",
-            "Oturma Konumu Riski": "Oturma Konumu"
-        }
-
-        sosyal_grafik_gosterim = sosyal_grafik_df.copy()
-        sosyal_grafik_gosterim["Gösterim"] = sosyal_grafik_gosterim["Risk Bileşeni"].map(kisa_etiketler)
-
-        fig_sosyal = go.Figure(
-            go.Bar(
-                x=sosyal_grafik_gosterim["Risk Puanı"],
-                y=sosyal_grafik_gosterim["Gösterim"],
-                orientation="h"
-            )
-        )
-
-        fig_sosyal.update_layout(
-            xaxis_title="Risk Puanı",
-            yaxis_title="",
-            xaxis=dict(range=[0, 100]),
-            margin=dict(l=20, r=20, t=10, b=20),
-            height=360
-        )
-
-        st.plotly_chart(
-            fig_sosyal,
-            use_container_width=True
+        st.bar_chart(
+            sosyal_grafik_df.set_index("Risk Bileşeni"),
+            y="Risk Puanı"
         )
 
         with st.expander("🧮 Sosyal risk hesabının ayrıntılarını görüntüle"):
@@ -1328,129 +1201,9 @@ else:
             )
 
 
-
-
-    if st.button(
-        "📊 Öğrenci Risk Analizini Yap",
-        type="primary",
-        use_container_width=True
-    ):
-
-        puan, durum, gerekce = risk_hesapla(
-            ilk_not,
-            ikinci_not,
-            devamsizlik,
-            odev_yuzdesi,
-            katilim_yuzdesi
-        )
-
-
-        sosyal_puan, sosyal_durum, sosyal_nedenler, sosyal_oneriler, sosyal_bilesenler = sosyal_risk_hesapla(
-            grup_katilimi,
-            akran_destegi,
-            arkadas_baglantisi,
-            ogretmen_iletisimi,
-            sosyal_izolasyon,
-            oturma_konumu
-        )
-
-        genel_destek, genel_destek_ikon, genel_destek_aciklama = genel_destek_durumu_hesapla(
-            durum,
-            sosyal_durum
-        )
-
-        egri_metni, oneri_mesaji, oneri_ikon = (
-            oturma_onerisi_yap(
-                ilk_not,
-                ikinci_not,
-                duzen2
-            )
-        )
-
-        not_ort = (
-            ilk_not + ikinci_not
-        ) / 2
-
-        performans_dususu = (
-            ilk_not - ikinci_not
-        )
-
-        ai_girdi = pd.DataFrame({
-
-            "Devamsizlik":
-                [devamsizlik],
-
-            "Not_Ortalamasi":
-                [not_ort],
-
-            "Odev_Tamamlama_Yuzdesi":
-                [odev_yuzdesi],
-
-            "Katilim_Yuzdesi":
-                [katilim_yuzdesi],
-
-            "Performans_Dususu":
-                [performans_dususu]
-        })
-
-        ai_tahmin = model.predict(
-            ai_girdi
-        )[0]
-
-        risk_index = list(
-            model.classes_
-        ).index(1)
-
-        risk_olasiligi = (
-            model.predict_proba(
-                ai_girdi
-            )[0][risk_index]
-            * 100
-        )
-
-        st.session_state["son_analiz"] = {
-            "ogrenci_adi": ogrenci_adi,
-            "ilk_not": ilk_not,
-            "ikinci_not": ikinci_not,
-            "duzen1": duzen1,
-            "duzen2": duzen2,
-            "odev_yuzdesi": odev_yuzdesi,
-            "katilim_yuzdesi": katilim_yuzdesi,
-            "devamsizlik": devamsizlik,
-            "grup_katilimi": grup_katilimi,
-            "akran_destegi": akran_destegi,
-            "arkadas_baglantisi": arkadas_baglantisi,
-            "ogretmen_iletisimi": ogretmen_iletisimi,
-            "sosyal_izolasyon": sosyal_izolasyon,
-            "oturma_konumu": oturma_konumu,
-            "puan": puan,
-            "durum": durum,
-            "gerekce": gerekce,
-            "sosyal_puan": sosyal_puan,
-            "sosyal_durum": sosyal_durum,
-            "sosyal_nedenler": sosyal_nedenler,
-            "sosyal_oneriler": sosyal_oneriler,
-            "sosyal_bilesenler": sosyal_bilesenler,
-            "genel_destek": genel_destek,
-            "genel_destek_ikon": genel_destek_ikon,
-            "genel_destek_aciklama": genel_destek_aciklama,
-            "egri_metni": egri_metni,
-            "oneri_mesaji": oneri_mesaji,
-            "oneri_ikon": oneri_ikon,
-            "not_ort": not_ort,
-            "performans_dususu": performans_dususu,
-            "ai_tahmin": int(ai_tahmin),
-            "risk_olasiligi": float(risk_olasiligi),
-        }
-
-        # Yeni öğrenci/analiz bağlamında eski sohbet karışmasın.
-        st.session_state["smartclass_ai_messages"] = []
-        st.session_state["yeni_analiz_yapildi"] = True
-
-    if st.session_state.get("son_analiz"):
-        analiz_raporunu_goster(st.session_state["son_analiz"])
-        st.session_state["yeni_analiz_yapildi"] = False
-
+    # =========================================================
+    # TOPLU SINIF ANALİZİ
+    # =========================================================
 
     st.markdown("---")
 
@@ -1776,145 +1529,3 @@ else:
             st.error(
                 f"🚨 Hata detayı: {e}"
             )
-
-    # ----------------------------------------------------------------------
-    # SAĞ ALTTA AÇILIR SMARTCLASS AI ÖĞRETMEN ASİSTANI
-    # ----------------------------------------------------------------------
-    st.markdown(
-        """
-        <style>
-        /* SmartClass AI popover düğmesini sağ alta sabitle */
-        div[data-testid="stPopover"] {
-            position: fixed !important;
-            right: 24px !important;
-            bottom: 24px !important;
-            z-index: 999999 !important;
-        }
-
-        div[data-testid="stPopover"] button {
-            border-radius: 999px !important;
-            padding: 0.70rem 1rem !important;
-            font-weight: 700 !important;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22) !important;
-        }
-
-        @media (max-width: 700px) {
-            div[data-testid="stPopover"] {
-                right: 12px !important;
-                bottom: 12px !important;
-            }
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    def ai_panel_icerigi():
-        st.markdown("### 🤖 SmartClass AI Öğretmen Asistanı")
-        st.caption(
-            "Mevcut akademik ve sosyal analizleri açıklamak ve öğretmene "
-            "destek seçenekleri sunmak için kullanılır. Nihai karar öğretmene aittir."
-        )
-
-        analiz = st.session_state.get("son_analiz")
-
-        if analiz:
-            st.info(
-                f"📌 **Bağlı analiz:** {analiz['ogrenci_adi']}  ·  "
-                f"Akademik: {analiz['puan']}/100  ·  "
-                f"Sosyal: {analiz['sosyal_puan']}/100"
-            )
-        else:
-            st.warning(
-                "Öğrenciye özel öneri için önce **Öğrenci Risk Analizini Yap** butonuyla "
-                "bir analiz oluşturun."
-            )
-
-        st.caption(
-            "🔐 Gizlilik: AI servisine gerçek öğrenci adı otomatik olarak gönderilmez. "
-            "Asistana TC, telefon, adres gibi kişisel veriler yazmayın."
-        )
-
-        # Sohbet geçmişini göster
-        for mesaj in st.session_state["smartclass_ai_messages"][-8:]:
-            with st.chat_message(mesaj["role"]):
-                st.markdown(mesaj["content"])
-
-        soru = None
-
-        if analiz:
-            q1 = st.button(
-                "🎯 Öncelikli destek alanını açıkla",
-                key="ai_hizli_oncelik",
-                use_container_width=True,
-            )
-            q2 = st.button(
-                "🔎 Riskin temel nedenlerini özetle",
-                key="ai_hizli_neden",
-                use_container_width=True,
-            )
-            q3 = st.button(
-                "🧩 İlk müdahale adımlarını öner",
-                key="ai_hizli_mudahale",
-                use_container_width=True,
-            )
-
-            if q1:
-                soru = "Bu öğrenci için öncelikli destek alanı nedir? Verilere dayanarak kısa gerekçe ver."
-            elif q2:
-                soru = "Bu öğrencinin akademik ve sosyal risklerinin temel nedenlerini ayrı ayrı özetle."
-            elif q3:
-                soru = "Bu öğrenci için uygulanabilecek ilk 3 destek adımını öncelik sırasıyla öner ve her birini verideki göstergeyle ilişkilendir."
-
-        with st.form("smartclass_ai_form", clear_on_submit=True):
-            yazili_soru = st.text_input(
-                "Mesajınız",
-                placeholder="Örn: Bu öğrenci için ilk olarak ne yapmalıyım?",
-                disabled=not bool(analiz),
-            )
-            gonder = st.form_submit_button(
-                "Gönder",
-                use_container_width=True,
-                disabled=not bool(analiz),
-            )
-
-        if gonder and yazili_soru.strip():
-            soru = yazili_soru.strip()
-
-        if soru and analiz:
-            st.session_state["smartclass_ai_messages"].append(
-                {"role": "user", "content": soru}
-            )
-
-            with st.spinner("SmartClass AI analiz ediyor..."):
-                yanit = smartclass_ai_yanit_al(
-                    soru,
-                    analiz,
-                    st.session_state["smartclass_ai_messages"][:-1],
-                )
-
-            st.session_state["smartclass_ai_messages"].append(
-                {"role": "assistant", "content": yanit}
-            )
-
-            with st.chat_message("user"):
-                st.markdown(soru)
-            with st.chat_message("assistant"):
-                st.markdown(yanit)
-
-        if st.session_state["smartclass_ai_messages"]:
-            if st.button(
-                "🗑️ Sohbeti Temizle",
-                key="ai_sohbet_temizle",
-                use_container_width=True,
-            ):
-                st.session_state["smartclass_ai_messages"] = []
-                st.rerun()
-
-    if hasattr(st, "popover"):
-        with st.popover("🤖 AI Asistan"):
-            ai_panel_icerigi()
-    else:
-        # Eski Streamlit sürümleri için güvenli geri dönüş.
-        with st.expander("🤖 SmartClass AI Öğretmen Asistanı"):
-            ai_panel_icerigi()
