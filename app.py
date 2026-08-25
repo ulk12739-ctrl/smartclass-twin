@@ -14,6 +14,9 @@ st.set_page_config(
 )
 
 
+# ---------------------------------------------------------
+# BAŞLIK VE LOGOLAR
+# ---------------------------------------------------------
 
 col_logo_sol, col_baslik, col_logo_sag = st.columns([1, 3, 1])
 
@@ -40,7 +43,9 @@ with col_logo_sag:
 st.markdown("---")
 
 
-
+# ---------------------------------------------------------
+# GİRİŞ SİSTEMİ
+# ---------------------------------------------------------
 
 if "giris_yapildi" not in st.session_state:
     st.session_state["giris_yapildi"] = False
@@ -79,7 +84,9 @@ else:
     )
 
 
-
+    # =========================================================
+    # AKADEMİK RİSK HESAPLAMA MOTORU
+    # =========================================================
 
     def risk_hesapla(
         ilk_not,
@@ -175,6 +182,9 @@ else:
         return puan, durum, gerekce
 
 
+    # =========================================================
+    # SOSYAL RİSK HESAPLAMA MOTORU
+    # =========================================================
 
     def sosyal_risk_hesapla(
         grup_katilimi,
@@ -333,33 +343,16 @@ else:
             sosyal_durum = "Düşük Sosyal Risk"
 
         if not nedenler:
-            if sosyal_durum == "Yüksek Sosyal Risk":
-                nedenler = [
-                    "Sosyal risk puanı yüksek düzeydedir. Tek bir baskın neden yerine, "
-                    "birden fazla sosyal göstergenin birleşik etkisi izlenmelidir."
-                ]
-            elif sosyal_durum == "Orta Sosyal Risk":
-                nedenler = [
-                    "Sosyal etkileşim göstergeleri genel olarak orta düzeyde destek ihtiyacına işaret etmektedir."
-                ]
-            else:
-                nedenler = [
-                    "Belirgin bir sosyal risk göstergesi bulunmamaktadır."
-                ]
+            nedenler = [
+                "Belirgin bir sosyal risk göstergesi "
+                "bulunmamaktadır."
+            ]
 
         if not oneriler:
-            if sosyal_durum == "Yüksek Sosyal Risk":
-                oneriler = [
-                    "Öğretmen gözlemiyle birlikte sosyal etkileşim göstergelerinin yakından izlenmesi önerilir."
-                ]
-            elif sosyal_durum == "Orta Sosyal Risk":
-                oneriler = [
-                    "Öğrencinin sosyal etkileşimi düzenli olarak izlenebilir ve gerekli görülen alanlarda destek sağlanabilir."
-                ]
-            else:
-                oneriler = [
-                    "Mevcut sosyal uyumun izlenerek desteklenmesi önerilir."
-                ]
+            oneriler = [
+                "Mevcut sosyal uyumun izlenerek "
+                "desteklenmesi önerilir."
+            ]
 
         risk_bilesenleri = {
             "Grup Katılımı Riski": grup_riski,
@@ -379,6 +372,13 @@ else:
         )
 
 
+
+    # =========================================================
+    # GENEL DESTEK DURUMU
+    # Akademik ve sosyal risk ayrı tutulur; burada yalnızca
+    # öğretmenin önceliklendirmesine yardımcı olan ortak özet üretilir.
+    # =========================================================
+
     def genel_destek_durumu_hesapla(akademik_durum, sosyal_durum):
         akademik_yuksek = akademik_durum in [
             "Kritik Risk",
@@ -397,43 +397,41 @@ else:
             return (
                 "Çoklu Destek",
                 "🚨",
-                f"Akademik durum '{akademik_durum}', sosyal durum ise '{sosyal_durum}' olarak hesaplandı. "
-                "Her iki alanın birlikte öğretmen tarafından değerlendirilmesi önerilir."
+                "Öğrencinin hem akademik hem sosyal göstergelerinde yüksek destek ihtiyacı görülmektedir."
             )
 
         elif akademik_yuksek:
             return (
                 "Akademik Destek",
                 "📚",
-                f"Akademik durum '{akademik_durum}', sosyal durum ise '{sosyal_durum}'. "
-                "Önceliğin akademik risk göstergelerine verilmesi önerilir."
+                "Öncelik akademik risk göstergelerinin öğretmen tarafından değerlendirilmesidir."
             )
 
         elif sosyal_yuksek:
             return (
                 "Sosyal Destek",
                 "🤝",
-                f"Akademik durum '{akademik_durum}', sosyal durum ise '{sosyal_durum}'. "
-                "Önceliğin sosyal etkileşim göstergelerine verilmesi önerilir."
+                "Öncelik sosyal etkileşim göstergelerinin öğretmen tarafından değerlendirilmesidir."
             )
 
         elif akademik_izleme or sosyal_izleme:
             return (
                 "İzleme",
                 "👀",
-                f"Akademik durum '{akademik_durum}', sosyal durum ise '{sosyal_durum}'. "
-                "Yüksek düzeyde ortak risk görülmese de öğrencinin gelişiminin düzenli izlenmesi önerilir."
+                "Belirgin bir yüksek risk olmasa da öğrencinin gelişiminin düzenli izlenmesi önerilir."
             )
 
         else:
             return (
                 "Rutin Takip",
                 "✅",
-                f"Akademik durum '{akademik_durum}', sosyal durum ise '{sosyal_durum}'. "
                 "Mevcut göstergelerde yüksek destek ihtiyacı görülmemektedir."
             )
 
 
+    # =========================================================
+    # OTURMA DÜZENİ ÖNERİSİ
+    # =========================================================
 
     def oturma_onerisi_yap(
         ilk_not,
@@ -526,6 +524,9 @@ else:
         return durum_analizi, mesaj, ikon
 
 
+    # =========================================================
+    # KARAR AĞACI MODELİ
+    # =========================================================
 
     @st.cache_resource
     def modeli_egit():
@@ -586,6 +587,9 @@ else:
     model = modeli_egit()
 
 
+    # =========================================================
+    # SIDEBAR
+    # =========================================================
 
     st.sidebar.header("⚙️ Veri Giriş Paneli")
 
@@ -651,6 +655,9 @@ else:
         5
     )
 
+    # =========================================================
+    # SOSYAL ETKİLEŞİM GİRİŞLERİ
+    # =========================================================
 
     st.sidebar.markdown("---")
 
@@ -718,6 +725,10 @@ else:
         st.rerun()
 
 
+    # =========================================================
+    # TEK ÖĞRENCİ ANALİZİ
+    # =========================================================
+
     if st.button(
         "📊 Öğrenci Risk Analizini Yap",
         type="primary",
@@ -732,7 +743,7 @@ else:
             katilim_yuzdesi
         )
 
-
+        # YENİ: Aynı buton sosyal risk motorunu da çalıştırıyor
         sosyal_puan, sosyal_durum, sosyal_nedenler, sosyal_oneriler, sosyal_bilesenler = sosyal_risk_hesapla(
             grup_katilimi,
             akran_destegi,
@@ -878,7 +889,7 @@ else:
         )
 
         st.subheader(
-            "🤖 Akademik Yapay Zekâ Ön Tahmini"
+            "🤖 Yapay Zekâ Ön Tahmini"
         )
 
         if ai_tahmin == 1:
@@ -898,9 +909,10 @@ else:
             )
 
         st.caption(
-            "Not: Bu karar ağacı tahmini yalnızca akademik veriler üzerinden çalışan "
-            "destekleyici bir ön tahmindir. Sosyal risk analizi ayrı bir ağırlıklı modelle "
-            "hesaplanır. Nihai değerlendirme öğretmenin pedagojik yorumuyla yapılır."
+            "Not: Bu bölüm destekleyici yapay zekâ ön tahminidir. "
+            "Nihai risk puanı, açıklanabilir ağırlıklı risk "
+            "formülü ve koşullu değerlendirme sistemiyle "
+            "hesaplanmaktadır."
         )
 
         with st.expander(
@@ -936,23 +948,12 @@ else:
             f"{gerekce}"
         )
 
-     
+        # -----------------------------------------------------
+        # SOSYAL ETKİLEŞİM ANALİZİ
+        # -----------------------------------------------------
 
         st.markdown("---")
         st.subheader("🤝 Sosyal Etkileşim Analizi")
-
-        if sosyal_durum == "Yüksek Sosyal Risk":
-            st.error(
-                f"🚨 **Sosyal Değerlendirme:** {sosyal_puan}/100 — {sosyal_durum}"
-            )
-        elif sosyal_durum == "Orta Sosyal Risk":
-            st.warning(
-                f"⚠️ **Sosyal Değerlendirme:** {sosyal_puan}/100 — {sosyal_durum}"
-            )
-        else:
-            st.success(
-                f"✅ **Sosyal Değerlendirme:** {sosyal_puan}/100 — {sosyal_durum}"
-            )
 
         sosyal_sol, sosyal_sag = st.columns([1, 1])
 
@@ -966,18 +967,6 @@ else:
             for oneri in sosyal_oneriler:
                 st.write(f"• {oneri}")
 
-        sirali_bilesenler = sorted(
-            sosyal_bilesenler.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
-        en_etkili_uc = sirali_bilesenler[:3]
-
-        st.info(
-            "📌 **Öne çıkan sosyal göstergeler:** "
-            + ", ".join([f"{ad}: {deger}/100" for ad, deger in en_etkili_uc])
-        )
-
         st.markdown("**📊 Sosyal Risk Bileşenleri**")
 
         sosyal_grafik_df = pd.DataFrame(
@@ -987,37 +976,9 @@ else:
             }
         )
 
-        kisa_etiketler = {
-            "Grup Katılımı Riski": "Grup Katılımı",
-            "Akran Desteği Riski": "Akran Desteği",
-            "Arkadaş Bağlantısı Riski": "Arkadaş Bağlantısı",
-            "Öğretmen İletişimi Riski": "Öğretmen İletişimi",
-            "Sosyal İzolasyon Riski": "Sosyal İzolasyon",
-            "Oturma Konumu Riski": "Oturma Konumu"
-        }
-
-        sosyal_grafik_gosterim = sosyal_grafik_df.copy()
-        sosyal_grafik_gosterim["Gösterim"] = sosyal_grafik_gosterim["Risk Bileşeni"].map(kisa_etiketler)
-
-        fig_sosyal = go.Figure(
-            go.Bar(
-                x=sosyal_grafik_gosterim["Risk Puanı"],
-                y=sosyal_grafik_gosterim["Gösterim"],
-                orientation="h"
-            )
-        )
-
-        fig_sosyal.update_layout(
-            xaxis_title="Risk Puanı",
-            yaxis_title="",
-            xaxis=dict(range=[0, 100]),
-            margin=dict(l=20, r=20, t=10, b=20),
-            height=360
-        )
-
-        st.plotly_chart(
-            fig_sosyal,
-            use_container_width=True
+        st.bar_chart(
+            sosyal_grafik_df.set_index("Risk Bileşeni"),
+            y="Risk Puanı"
         )
 
         with st.expander("🧮 Sosyal risk hesabının ayrıntılarını görüntüle"):
@@ -1239,6 +1200,10 @@ else:
                 use_container_width=True
             )
 
+
+    # =========================================================
+    # TOPLU SINIF ANALİZİ
+    # =========================================================
 
     st.markdown("---")
 
