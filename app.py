@@ -446,7 +446,7 @@ def smartclass_ai_yanit_al(soru, analiz_baglami, sohbet_gecmisi):
     }
 
     gecmis_parcalari = []
-    for mesaj in sohbet_gecmisi[-6:]:
+    for mesaj in sohbet_gecmisi[-4:]:
         icerik = str(mesaj.get("content", ""))
         if not ogrenci_tanimlayici.strip().upper().startswith("ST"):
             icerik = icerik.replace(ogrenci_tanimlayici, "[ÖĞRENCİ]")
@@ -466,7 +466,7 @@ Sen SmartClass Twin projesinin Twin AI Asistanısın.
 - Öğrenciyi etiketleme, psikolojik/sağlık tanısı koyma.
 - Kanıtlanmamış kesin neden-sonuç, kesin gelecek tahmini veya uydurma yüzde üretme.
 - Önerileri kısa, uygulanabilir ve mevcut göstergelerle bağlantılı ver.
-- Yanıtı tercihen 80-250 kelime arasında tut; soru daha fazla ayrıntı gerektiriyorsa gerektiği kadar uzat.
+- Yanıtı tercihen 60-180 kelime arasında tut. Öğretmen özellikle ayrıntı isterse biraz daha uzat.
 - Cevabı yarıda kesme. Uzunluk sınırına yaklaşırsan ayrıntıyı azalt, fakat son cümleyi mutlaka tamamla.
 - Uygunsa nihai pedagojik kararın öğretmene ait olduğunu bir cümleyle belirt.
 """.strip()
@@ -484,25 +484,25 @@ Sen SmartClass Twin projesinin Twin AI Asistanısın.
     client = genai.Client(api_key=api_key)
     son_hata = None
 
-    # Güncel Flash modelleri öncelikli; erişim yoksa geriye düşer.
-    model_listesi = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-2.5-flash"]
+    # Jüri/demonstrasyon kullanımında gecikmeyi azaltmak için düşük gecikmeli
+    # Flash-Lite modeli önceliklidir. Daha ağır modele yalnızca erişim hatasında düşülür.
+    model_listesi = ["gemini-3.5-flash-lite", "gemini-2.5-flash-lite"]
 
     for model_adi in model_listesi:
         try:
-            if model_adi.startswith("gemini-3"):
+            if model_adi == "gemini-3.5-flash-lite":
                 config = types.GenerateContentConfig(
                     system_instruction=system_instruction,
-                    max_output_tokens=1600,
+                    max_output_tokens=900,
                     thinking_config=types.ThinkingConfig(
-                        thinking_level="low",
+                        thinking_level="minimal",
                         include_thoughts=False,
                     ),
                 )
             else:
                 config = types.GenerateContentConfig(
                     system_instruction=system_instruction,
-                    temperature=0.2,
-                    max_output_tokens=1600,
+                    max_output_tokens=900,
                     thinking_config=types.ThinkingConfig(
                         thinking_budget=0,
                         include_thoughts=False,
