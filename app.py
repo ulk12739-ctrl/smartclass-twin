@@ -309,7 +309,7 @@ def smartclass_ai_yanit_al(soru, analiz_baglami, sohbet_gecmisi):
         gecmis_parcalari.append(f"{rol}: {icerik}")
 
     system_instruction = """
-Sen SmartClass Twin AI Öğretmen Asistanısın.
+Sen SmartClass Twin projesinin Twin AI Asistanısın.
 Öğretmenin verdiği öğrenci analizini açıkla ve uygulanabilir destek önerileri sun.
 
 Çıktı kuralları:
@@ -997,13 +997,6 @@ else:
 
     st.sidebar.subheader("👤 Öğrenci Bilgileri")
 
-    sinif_secenekleri = [
-        "9/A", "9/B", "9/C",
-        "10/A", "10/B", "10/C",
-        "11/A", "11/B", "11/C",
-        "12/A", "12/B", "12/C",
-    ]
-
     kayitli_ogrenciler, ogrenci_liste_hatasi = kayitli_ogrencileri_getir()
     if ogrenci_liste_hatasi:
         st.sidebar.warning(ogrenci_liste_hatasi)
@@ -1049,11 +1042,12 @@ else:
             value="",
             placeholder="Örn: Ayşe Yılmaz",
         ).strip()
-        sinif = st.sidebar.selectbox(
+        sinif = st.sidebar.text_input(
             "Sınıf",
-            sinif_secenekleri,
-            index=0,
-        )
+            value="9/A",
+            placeholder="Örn: 9/A, 10/D, 11/E",
+            help="Sınıf ve şubeyi okulunuzdaki kullanıma göre serbestçe yazabilirsiniz.",
+        ).strip().upper()
         st.sidebar.caption(
             "🔑 Öğrenci kodu ilk analiz kaydedilirken sistem tarafından otomatik oluşturulur "
             "(ST0001, ST0002, ...)."
@@ -2185,7 +2179,7 @@ else:
     st.markdown(
         """
         <style>
-        /* SmartClass AI popover düğmesini sağ alta sabitle */
+        /* Twin AI Asistan popover düğmesini sağ alta sabitle */
         div[data-testid="stPopover"] {
             position: fixed !important;
             right: 24px !important;
@@ -2212,7 +2206,7 @@ else:
     )
 
     def ai_panel_icerigi():
-        st.markdown("### 🤖 SmartClass AI Öğretmen Asistanı")
+        st.markdown("### 🤖 Twin AI Asistan")
         st.caption(
             "Mevcut akademik ve sosyal analizleri açıklamak ve öğretmene "
             "destek seçenekleri sunmak için kullanılır. Nihai karar öğretmene aittir."
@@ -2288,7 +2282,7 @@ else:
                 {"role": "user", "content": soru}
             )
 
-            with st.spinner("SmartClass AI analiz ediyor..."):
+            with st.spinner("Twin AI Asistan analiz ediyor..."):
                 yanit = smartclass_ai_yanit_al(
                     soru,
                     analiz,
@@ -2314,9 +2308,9 @@ else:
                 st.rerun()
 
     if hasattr(st, "popover"):
-        with st.popover("🤖 AI Asistan"):
+        with st.popover("🤖 Twin AI Asistan"):
             ai_panel_icerigi()
     else:
         # Eski Streamlit sürümleri için güvenli geri dönüş.
-        with st.expander("🤖 SmartClass AI Öğretmen Asistanı"):
+        with st.expander("🤖 Twin AI Asistan"):
             ai_panel_icerigi()
