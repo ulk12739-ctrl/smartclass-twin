@@ -31,6 +31,180 @@ if "son_analiz" not in st.session_state:
 if "yeni_analiz_yapildi" not in st.session_state:
     st.session_state["yeni_analiz_yapildi"] = False
 
+if "analiz_kaydedildi" not in st.session_state:
+    st.session_state["analiz_kaydedildi"] = False
+
+
+# --------------------------------------------------------------------------
+# SUPABASE / POSTGRESQL KALICI KAYIT KATMANI
+# --------------------------------------------------------------------------
+# SUPABASE_URL ve SUPABASE_SECRET_KEY yalnızca Streamlit Secrets içinde tutulur.
+# Secret key tarayıcıya, GitHub'a veya kullanıcı arayüzüne yazdırılmaz.
+
+@st.cache_resource
+def _supabase_client_olustur(url, secret_key):
+    from supabase import create_client
+    return create_client(url, secret_key)
+
+
+def supabase_client_al():
+    """Supabase istemcisini güvenli biçimde oluşturur."""
+    try:
+        url = st.secrets["SUPABASE_URL"]
+        secret_key = st.secrets["SUPABASE_SECRET_KEY"]
+    except Exception:
+        return None, (
+            "Supabase bağlantı bilgileri bulunamadı. Streamlit Secrets içinde "
+            "`SUPABASE_URL` ve `SUPABASE_SECRET_KEY` tanımlı olmalıdır."
+        )
+
+    try:
+        return _supabase_client_olustur(url, secret_key), None
+    except ImportError:
+        return None, (
+            "Supabase Python paketi bulunamadı. `requirements.txt` dosyasında "
+            "`supabase` satırı bulunmalıdır."
+        )
+    except Exception:
+        return None, (
+            "Supabase istemcisi oluşturulamadı. Project URL ve Secret Key "
+            "ayarlarını kontrol edin."
+        )
+
+
+def supabase_baglanti_testi():
+    client, hata = supabase_client_al()
+    if hata:
+        return False, hata
+
+    try:
+        client.table("ogrenciler").select("id").limit(1).execute()
+        return True, "Supabase/PostgreSQL bağlantısı hazır."
+    except Exception:
+        return False, (
+            "Veritabanına erişilemedi. Supabase proje adresini, Secret Key'i "
+            "ve `ogrenciler` tablosunun varlığını kontrol edin."
+        )
+
+
+def _temiz_metin(deger):
+    return " ".join(str(deger or "").strip().split())
+
+
+def ogrenciyi_bul_veya_olustur(client, ogrenci_kodu, ad_soyad, sinif):
+    """
+    Öğrenci kodu üzerinden kimlik kaydını bulur.
+    Kod yoksa yeni öğrenci oluşturur; kod başka bir kimlikle eşleşiyorsa
+    yanlış öğrenciye analiz bağlanmasını engeller.
+    """
+    kod = _temiz_metin(ogrenci_kodu).upper()
+    ad = _temiz_metin(ad_soyad)
+    sinif_degeri = _temiz_metin(sinif).upper()
+
+    if not kod or not ad or not sinif_degeri:
+        raise ValueError("Öğrenci kodu, ad soyad ve sınıf alanları zorunludur.")
+
+    sonuc = (
+        client.table("ogrenciler")
+        .select("id, ogrenci_kodu, ad_soyad, sinif")
+        .eq("ogrenci_kodu", kod)
+        .limit(1)
+        .execute()
+    )
+
+    if sonuc.data:
+        kayit = sonuc.data[0]
+        kayitli_ad = _temiz_metin(kayit.get("ad_soyad"))
+        kayitli_sinif = _temiz_metin(kayit.get("sinif")).upper()
+
+        if kayitli_ad.casefold() != ad.casefold() or kayitli_sinif != sinif_degeri:
+            raise ValueError(
+                f"`{kod}` öğrenci kodu veritabanında başka bir kimlik bilgisiyle "
+                "kayıtlı. Yanlış öğrenciye analiz bağlanmaması için öğrenci kodunu, "
+                "ad soyadı ve sınıfı kontrol edin."
+            )
+
+        return kayit["id"], False
+
+    eklenen = (
+        client.table("ogrenciler")
+        .insert(
+            {
+                "ogrenci_kodu": kod,
+                "ad_soyad": ad,
+                "sinif": sinif_degeri,
+            }
+        )
+        .execute()
+    )
+
+    if not eklenen.data:
+        raise RuntimeError("Öğrenci kaydı oluşturulamadı.")
+
+    return eklenen.data[0]["id"], True
+
+
+def analizi_supabase_kaydet(analiz):
+    """Son öğrenci analizini PostgreSQL'e kalıcı olarak kaydeder."""
+    client, hata = supabase_client_al()
+    if hata:
+        return False, hata
+
+    try:
+        ogrenci_id, yeni_ogrenci = ogrenciyi_bul_veya_olustur(
+            client,
+            analiz.get("ogrenci_kodu"),
+            analiz.get("ogrenci_adi"),
+            analiz.get("sinif"),
+        )
+
+        kayit = {
+            "ogrenci_id": ogrenci_id,
+            "ilk_not": int(analiz["ilk_not"]),
+            "ikinci_not": int(analiz["ikinci_not"]),
+            "birinci_oturma_duzeni": analiz.get("duzen1"),
+            "ikinci_oturma_duzeni": analiz.get("duzen2"),
+            "devamsizlik": int(analiz["devamsizlik"]),
+            "odev_yuzdesi": int(analiz["odev_yuzdesi"]),
+            "katilim_yuzdesi": int(analiz["katilim_yuzdesi"]),
+            "grup_katilimi": int(analiz["grup_katilimi"]),
+            "akran_destegi": int(analiz["akran_destegi"]),
+            "arkadas_baglantisi": int(analiz["arkadas_baglantisi"]),
+            "ogretmen_iletisimi": int(analiz["ogretmen_iletisimi"]),
+            "sosyal_izolasyon": int(analiz["sosyal_izolasyon"]),
+            "oturma_konumu": analiz["oturma_konumu"],
+            "akademik_risk": float(analiz["puan"]),
+            "akademik_durum": analiz["durum"],
+            "akademik_gerekce": analiz.get("gerekce"),
+            "sosyal_risk": float(analiz["sosyal_puan"]),
+            "sosyal_durum": analiz["sosyal_durum"],
+            "sosyal_nedenler": analiz.get("sosyal_nedenler", []),
+            "sosyal_oneriler": analiz.get("sosyal_oneriler", []),
+            "sosyal_bilesenler": analiz.get("sosyal_bilesenler", {}),
+            "genel_destek": analiz["genel_destek"],
+        }
+
+        sonuc = client.table("analiz_gecmisi").insert(kayit).execute()
+
+        if not sonuc.data:
+            return False, "Analiz kaydı veritabanına eklenemedi."
+
+        if yeni_ogrenci:
+            return True, (
+                f"✅ {analiz['ogrenci_kodu']} kodlu öğrenci oluşturuldu ve "
+                "analiz kalıcı olarak kaydedildi."
+            )
+
+        return True, "✅ Analiz mevcut öğrenci kaydına kalıcı olarak eklendi."
+
+    except ValueError as e:
+        return False, str(e)
+    except Exception:
+        return False, (
+            "Analiz kaydedilemedi. Veritabanı bağlantısını ve tablo sütunlarını "
+            "kontrol edin."
+        )
+
 
 def smartclass_ai_yanit_al(soru, analiz_baglami, sohbet_gecmisi):
     """Gemini'den öğretmene gösterilecek yalnızca nihai Türkçe yanıtı alır."""
@@ -777,10 +951,39 @@ else:
 
     st.sidebar.header("⚙️ Veri Giriş Paneli")
 
+    st.sidebar.subheader("👤 Öğrenci Bilgileri")
+
+    ogrenci_kodu = st.sidebar.text_input(
+        "Öğrenci Kodu",
+        value="ST01",
+        help="Her öğrenci için benzersiz kod. Örn: ST01"
+    ).strip().upper()
+
     ogrenci_adi = st.sidebar.text_input(
-        "Öğrenci Tanımlayıcı",
+        "Ad Soyad",
         value="Öğrenci Örnek"
-    )
+    ).strip()
+
+    sinif = st.sidebar.text_input(
+        "Sınıf",
+        value="8/A",
+        help="Örn: 8/A"
+    ).strip().upper()
+
+    with st.sidebar.expander("🗄️ Veritabanı Durumu"):
+        st.caption(
+            "Öğrenci ve analiz kayıtları Supabase/PostgreSQL üzerinde kalıcı tutulur."
+        )
+        if st.button(
+            "🔌 Bağlantıyı Test Et",
+            key="supabase_baglanti_test",
+            use_container_width=True
+        ):
+            basarili, mesaj = supabase_baglanti_testi()
+            if basarili:
+                st.success(mesaj)
+            else:
+                st.error(mesaj)
 
     st.sidebar.subheader("📚 Akademik Veriler")
 
@@ -906,11 +1109,14 @@ else:
         st.session_state["smartclass_ai_messages"] = []
         st.session_state["son_analiz"] = None
         st.session_state["yeni_analiz_yapildi"] = False
+        st.session_state["analiz_kaydedildi"] = False
         st.rerun()
 
 
     def analiz_raporunu_goster(a):
         ogrenci_adi = a["ogrenci_adi"]
+        ogrenci_kodu = a.get("ogrenci_kodu", "")
+        sinif = a.get("sinif", "")
         ilk_not = a["ilk_not"]
         ikinci_not = a["ikinci_not"]
         duzen2 = a["duzen2"]
@@ -936,8 +1142,12 @@ else:
         ai_tahmin = a["ai_tahmin"]
         risk_olasiligi = a["risk_olasiligi"]
 
+        kimlik_eki = ""
+        if ogrenci_kodu or sinif:
+            kimlik_eki = f" ({ogrenci_kodu} · {sinif})"
+
         st.subheader(
-            f"📋 {ogrenci_adi} İçin Risk Analiz Raporu"
+            f"📋 {ogrenci_adi}{kimlik_eki} İçin Risk Analiz Raporu"
         )
 
         st.markdown("### 🧭 Öğrenci Genel Risk Profili")
@@ -1465,7 +1675,9 @@ else:
         )
 
         st.session_state["son_analiz"] = {
+            "ogrenci_kodu": ogrenci_kodu,
             "ogrenci_adi": ogrenci_adi,
+            "sinif": sinif,
             "ilk_not": ilk_not,
             "ikinci_not": ikinci_not,
             "duzen1": duzen1,
@@ -1502,10 +1714,44 @@ else:
         # Yeni öğrenci/analiz bağlamında eski sohbet karışmasın.
         st.session_state["smartclass_ai_messages"] = []
         st.session_state["yeni_analiz_yapildi"] = True
+        st.session_state["analiz_kaydedildi"] = False
 
     if st.session_state.get("son_analiz"):
         analiz_raporunu_goster(st.session_state["son_analiz"])
         st.session_state["yeni_analiz_yapildi"] = False
+
+        st.markdown("---")
+        st.subheader("💾 Analizi Kalıcı Olarak Kaydet")
+
+        kayit_analizi = st.session_state["son_analiz"]
+        st.caption(
+            "Kayıt sırasında öğrenci kimliği `ogrenciler` tablosunda, analiz verileri "
+            "ise öğrenci ID'si üzerinden `analiz_gecmisi` tablosunda tutulur."
+        )
+        st.info(
+            f"👤 **{kayit_analizi['ogrenci_adi']}** · "
+            f"{kayit_analizi['ogrenci_kodu']} · {kayit_analizi['sinif']}  |  "
+            f"📚 Akademik: **{kayit_analizi['puan']}/100**  |  "
+            f"🤝 Sosyal: **{kayit_analizi['sosyal_puan']}/100**"
+        )
+
+        if st.session_state.get("analiz_kaydedildi", False):
+            st.success("✅ Bu analiz veritabanına kaydedildi.")
+        else:
+            if st.button(
+                "💾 Bu Analizi Kaydet",
+                type="primary",
+                use_container_width=True,
+                key="analizi_supabase_kaydet"
+            ):
+                with st.spinner("Analiz Supabase/PostgreSQL'e kaydediliyor..."):
+                    basarili, mesaj = analizi_supabase_kaydet(kayit_analizi)
+
+                if basarili:
+                    st.session_state["analiz_kaydedildi"] = True
+                    st.success(mesaj)
+                else:
+                    st.error(mesaj)
 
 
     st.markdown("---")
@@ -1876,7 +2122,7 @@ else:
 
         if analiz:
             st.info(
-                f"📌 **Bağlı analiz:** {analiz['ogrenci_adi']}  ·  "
+                f"📌 **Bağlı analiz:** {analiz['ogrenci_adi']} ({analiz.get('ogrenci_kodu', '')})  ·  "
                 f"Akademik: {analiz['puan']}/100  ·  "
                 f"Sosyal: {analiz['sosyal_puan']}/100"
             )
