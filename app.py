@@ -466,6 +466,8 @@ Sen SmartClass Twin projesinin Twin AI Asistanısın.
 - Öğrenciyi etiketleme, psikolojik/sağlık tanısı koyma.
 - Kanıtlanmamış kesin neden-sonuç, kesin gelecek tahmini veya uydurma yüzde üretme.
 - Önerileri kısa, uygulanabilir ve mevcut göstergelerle bağlantılı ver.
+- Yanıtı tercihen 80-250 kelime arasında tut; soru daha fazla ayrıntı gerektiriyorsa gerektiği kadar uzat.
+- Cevabı yarıda kesme. Uzunluk sınırına yaklaşırsan ayrıntıyı azalt, fakat son cümleyi mutlaka tamamla.
 - Uygunsa nihai pedagojik kararın öğretmene ait olduğunu bir cümleyle belirt.
 """.strip()
 
@@ -490,7 +492,7 @@ Sen SmartClass Twin projesinin Twin AI Asistanısın.
             if model_adi.startswith("gemini-3"):
                 config = types.GenerateContentConfig(
                     system_instruction=system_instruction,
-                    max_output_tokens=500,
+                    max_output_tokens=1600,
                     thinking_config=types.ThinkingConfig(
                         thinking_level="low",
                         include_thoughts=False,
@@ -500,7 +502,7 @@ Sen SmartClass Twin projesinin Twin AI Asistanısın.
                 config = types.GenerateContentConfig(
                     system_instruction=system_instruction,
                     temperature=0.2,
-                    max_output_tokens=500,
+                    max_output_tokens=1600,
                     thinking_config=types.ThinkingConfig(
                         thinking_budget=0,
                         include_thoughts=False,
