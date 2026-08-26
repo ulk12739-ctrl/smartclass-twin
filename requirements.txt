@@ -6,3 +6,4 @@ openpyxl
 streamlit-extras
 plotly
 google-genai
+supabase
