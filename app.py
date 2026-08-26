@@ -63,30 +63,68 @@ if "analiz_kaydedildi" not in st.session_state:
 
 
 # --------------------------------------------------------------------------
-# SUPABASE / POSTGRESQL KALICI KAYIT KATMANI
+# SUPABASE AUTH + POSTGRESQL KALICI KAYIT KATMANI
+# SÜRÜM: AUTH-RLS-2026-08-26
 # --------------------------------------------------------------------------
-# SUPABASE_URL ve SUPABASE_SECRET_KEY yalnızca Streamlit Secrets içinde tutulur.
-# Secret key tarayıcıya, GitHub'a veya kullanıcı arayüzüne yazdırılmaz.
+# Normal öğretmen işlemleri yalnızca SUPABASE_PUBLISHABLE_KEY ile yapılır.
+# SUPABASE_SECRET_KEY uygulamanın normal akışında kullanılmaz.
+# Öğretmen oturumu Supabase Auth üzerinden açılır; veritabanı erişimi RLS'ye tabidir.
 
-@st.cache_resource
-def _supabase_client_olustur(url, secret_key):
-    from supabase import create_client
-    return create_client(url, secret_key)
+AUTH_SESSION_KEYS = (
+    "sb_access_token",
+    "sb_refresh_token",
+    "sb_user_id",
+    "sb_user_email",
+)
 
 
-def supabase_client_al():
-    """Supabase istemcisini güvenli biçimde oluşturur."""
+def _auth_session_temizle():
+    for key in AUTH_SESSION_KEYS:
+        st.session_state.pop(key, None)
+
+
+def _auth_session_kaydet(session=None, user=None):
+    if session is not None:
+        access_token = getattr(session, "access_token", None)
+        refresh_token = getattr(session, "refresh_token", None)
+        if access_token:
+            st.session_state["sb_access_token"] = access_token
+        if refresh_token:
+            st.session_state["sb_refresh_token"] = refresh_token
+
+        session_user = getattr(session, "user", None)
+        if user is None and session_user is not None:
+            user = session_user
+
+    if user is not None:
+        user_id = getattr(user, "id", None)
+        user_email = getattr(user, "email", None)
+        if user_id:
+            st.session_state["sb_user_id"] = str(user_id)
+        if user_email:
+            st.session_state["sb_user_email"] = str(user_email)
+
+
+def _supabase_baglantibilgileri_al():
     try:
         url = st.secrets["SUPABASE_URL"]
-        secret_key = st.secrets["SUPABASE_SECRET_KEY"]
+        publishable_key = st.secrets["SUPABASE_PUBLISHABLE_KEY"]
+        return url, publishable_key, None
     except Exception:
-        return None, (
+        return None, None, (
             "Supabase bağlantı bilgileri bulunamadı. Streamlit Secrets içinde "
-            "`SUPABASE_URL` ve `SUPABASE_SECRET_KEY` tanımlı olmalıdır."
+            "`SUPABASE_URL` ve `SUPABASE_PUBLISHABLE_KEY` tanımlı olmalıdır."
         )
 
+
+def _supabase_yeni_client():
+    url, publishable_key, hata = _supabase_baglantibilgileri_al()
+    if hata:
+        return None, hata
+
     try:
-        return _supabase_client_olustur(url, secret_key), None
+        from supabase import create_client
+        return create_client(url, publishable_key), None
     except ImportError:
         return None, (
             "Supabase Python paketi bulunamadı. `requirements.txt` dosyasında "
@@ -94,9 +132,93 @@ def supabase_client_al():
         )
     except Exception:
         return None, (
-            "Supabase istemcisi oluşturulamadı. Project URL ve Secret Key "
+            "Supabase istemcisi oluşturulamadı. Project URL ve Publishable Key "
             "ayarlarını kontrol edin."
         )
+
+
+def supabase_client_al(giris_zorunlu=True):
+    """Geçerli öğretmen oturumuyla RLS'ye tabi Supabase istemcisi döndürür."""
+    client, hata = _supabase_yeni_client()
+    if hata:
+        return None, hata
+
+    access_token = st.session_state.get("sb_access_token")
+    refresh_token = st.session_state.get("sb_refresh_token")
+
+    if not access_token or not refresh_token:
+        if giris_zorunlu:
+            return None, "Öğretmen oturumu bulunamadı. Lütfen tekrar giriş yapın."
+        return client, None
+
+    try:
+        session_response = client.auth.set_session(access_token, refresh_token)
+        yenilenen_session = getattr(session_response, "session", None)
+        if yenilenen_session is not None:
+            _auth_session_kaydet(session=yenilenen_session)
+
+        user_response = client.auth.get_user()
+        user = getattr(user_response, "user", None)
+        if user is None:
+            raise RuntimeError("Kullanıcı doğrulanamadı.")
+
+        _auth_session_kaydet(user=user)
+        return client, None
+
+    except Exception:
+        _auth_session_temizle()
+        return None, "Oturumun süresi dolmuş veya geçersiz. Lütfen tekrar giriş yapın."
+
+
+def supabase_giris_yap(email, password):
+    email = str(email or "").strip()
+    password = str(password or "")
+
+    if not email or not password:
+        return False, "E-posta ve şifre alanları zorunludur."
+
+    client, hata = _supabase_yeni_client()
+    if hata:
+        return False, hata
+
+    try:
+        response = client.auth.sign_in_with_password(
+            {"email": email, "password": password}
+        )
+        session = getattr(response, "session", None)
+        user = getattr(response, "user", None)
+
+        if session is None or user is None:
+            return False, "Giriş oturumu oluşturulamadı. E-posta doğrulamasını kontrol edin."
+
+        _auth_session_kaydet(session=session, user=user)
+        return True, "Giriş başarılı."
+    except Exception:
+        return False, "E-posta veya şifre hatalı ya da hesap henüz doğrulanmamış."
+
+
+def supabase_oturum_acik_mi():
+    if not st.session_state.get("sb_access_token") or not st.session_state.get("sb_refresh_token"):
+        return False
+
+    client, hata = supabase_client_al(giris_zorunlu=True)
+    return client is not None and hata is None
+
+
+def supabase_cikis_yap():
+    try:
+        client, _ = supabase_client_al(giris_zorunlu=False)
+        if client is not None and st.session_state.get("sb_access_token"):
+            try:
+                client.auth.set_session(
+                    st.session_state.get("sb_access_token"),
+                    st.session_state.get("sb_refresh_token"),
+                )
+                client.auth.sign_out()
+            except Exception:
+                pass
+    finally:
+        _auth_session_temizle()
 
 
 def supabase_baglanti_testi():
@@ -106,11 +228,11 @@ def supabase_baglanti_testi():
 
     try:
         client.table("ogrenciler").select("id").limit(1).execute()
-        return True, "Supabase/PostgreSQL bağlantısı hazır."
+        return True, "Supabase/PostgreSQL bağlantısı ve öğretmen oturumu hazır."
     except Exception:
         return False, (
-            "Veritabanına erişilemedi. Supabase proje adresini, Secret Key'i "
-            "ve `ogrenciler` tablosunun varlığını kontrol edin."
+            "Veritabanına yetkili erişim sağlanamadı. Auth oturumunu, RLS politikalarını "
+            "ve Data API izinlerini kontrol edin."
         )
 
 
@@ -119,7 +241,7 @@ def _temiz_metin(deger):
 
 
 def kayitli_ogrencileri_getir():
-    """Öğretmenin seçim yapabilmesi için kayıtlı öğrencileri getirir."""
+    """Yalnızca giriş yapan öğretmenin RLS ile izin verilen öğrencilerini getirir."""
     client, hata = supabase_client_al()
     if hata:
         return [], hata
@@ -135,12 +257,12 @@ def kayitli_ogrencileri_getir():
         return sonuc.data or [], None
     except Exception:
         return [], (
-            "Kayıtlı öğrenci listesi alınamadı. Veritabanı bağlantısını kontrol edin."
+            "Kayıtlı öğrenci listesi alınamadı. Öğretmen oturumunu ve RLS politikalarını kontrol edin."
         )
 
 
 def siradaki_ogrenci_kodu_uret(client):
-    """ST0001, ST0002 ... biçiminde sıradaki benzersiz öğrenci kodunu üretir."""
+    """Her öğretmen için ST0001, ST0002 ... biçiminde sıradaki kodu üretir."""
     sonuc = client.table("ogrenciler").select("ogrenci_kodu").execute()
     en_buyuk = 0
 
@@ -154,10 +276,7 @@ def siradaki_ogrenci_kodu_uret(client):
 
 
 def ogrenciyi_bul_veya_olustur(client, ogrenci_kodu, ad_soyad, sinif):
-    """
-    Kayıtlı öğrenci seçilmişse mevcut kimliği doğrular.
-    Yeni öğrenci için öğrenci kodunu otomatik üretir ve kimlik kaydını oluşturur.
-    """
+    """RLS kapsamında mevcut öğrenciyi doğrular veya yeni öğrenci oluşturur."""
     kod = _temiz_metin(ogrenci_kodu).upper()
     ad = _temiz_metin(ad_soyad)
     sinif_degeri = _temiz_metin(sinif).upper()
@@ -176,7 +295,7 @@ def ogrenciyi_bul_veya_olustur(client, ogrenci_kodu, ad_soyad, sinif):
 
         if not sonuc.data:
             raise ValueError(
-                f"`{kod}` kodlu öğrenci veritabanında bulunamadı. "
+                f"`{kod}` kodlu öğrenci bu öğretmen hesabında bulunamadı. "
                 "Kayıtlı öğrenci listesinden seçim yapın veya Yeni Öğrenci modunu kullanın."
             )
 
@@ -186,13 +305,12 @@ def ogrenciyi_bul_veya_olustur(client, ogrenci_kodu, ad_soyad, sinif):
 
         if kayitli_ad.casefold() != ad.casefold() or kayitli_sinif != sinif_degeri:
             raise ValueError(
-                f"`{kod}` öğrenci kodunun kimlik bilgileri veritabanındaki kayıtla eşleşmiyor. "
-                "Yanlış öğrenciye analiz bağlanmaması için kayıtlı öğrenci listesinden tekrar seçim yapın."
+                f"`{kod}` öğrenci kodunun kimlik bilgileri kayıtla eşleşmiyor. "
+                "Yanlış öğrenciye analiz bağlanmaması için öğrenciyi listeden tekrar seçin."
             )
 
         return kayit["id"], False, kayit["ogrenci_kodu"]
 
-    # Yeni öğrenci: kodu sistem üretir. Unique kısıtına karşı kısa bir yeniden deneme yapılır.
     son_hata = None
     for _ in range(3):
         yeni_kod = siradaki_ogrenci_kodu_uret(client)
@@ -204,6 +322,7 @@ def ogrenciyi_bul_veya_olustur(client, ogrenci_kodu, ad_soyad, sinif):
                         "ogrenci_kodu": yeni_kod,
                         "ad_soyad": ad,
                         "sinif": sinif_degeri,
+                        # ogretmen_id veritabanında auth.uid() default'u ile atanır.
                     }
                 )
                 .execute()
@@ -217,7 +336,7 @@ def ogrenciyi_bul_veya_olustur(client, ogrenci_kodu, ad_soyad, sinif):
 
 
 def analizi_supabase_kaydet(analiz):
-    """Son öğrenci analizini PostgreSQL'e kalıcı olarak kaydeder."""
+    """Son öğrenci analizini giriş yapan öğretmenin yetkisiyle kaydeder."""
     client, hata = supabase_client_al()
     if hata:
         return False, hata, None
@@ -272,7 +391,7 @@ def analizi_supabase_kaydet(analiz):
         return False, str(e), None
     except Exception:
         return False, (
-            "Analiz kaydedilemedi. Veritabanı bağlantısını ve tablo sütunlarını kontrol edin."
+            "Analiz kaydedilemedi. Öğretmen yetkisini, RLS politikalarını ve tablo sütunlarını kontrol edin."
         ), None
 
 
@@ -474,21 +593,20 @@ st.markdown("---")
 
 
 
-if "giris_yapildi" not in st.session_state:
-    st.session_state["giris_yapildi"] = False
-
-
-if not st.session_state["giris_yapildi"]:
+if not supabase_oturum_acik_mi():
 
     st.markdown(
-        "<h3 style='text-align: center;'>🔐 Sistem Girişi</h3>",
+        "<h3 style='text-align: center;'>🔐 Öğretmen Girişi</h3>",
         unsafe_allow_html=True
     )
 
     c1, c2, c3 = st.columns([1, 2, 1])
 
     with c2:
-        k_adi = st.text_input("Kullanıcı Adı")
+        e_posta = st.text_input(
+            "E-posta",
+            placeholder="ogretmen@okul.edu.tr"
+        )
         sifre = st.text_input("Şifre", type="password")
 
         if st.button(
@@ -496,11 +614,17 @@ if not st.session_state["giris_yapildi"]:
             use_container_width=True,
             type="primary"
         ):
-            if k_adi == "ogretmen" and sifre == "1234":
-                st.session_state["giris_yapildi"] = True
+            basarili, mesaj = supabase_giris_yap(e_posta, sifre)
+            if basarili:
+                st.success("✅ Güvenli öğretmen oturumu açıldı.")
                 st.rerun()
             else:
-                st.error("🚨 Hatalı kullanıcı adı veya şifre!")
+                st.error(f"🚨 {mesaj}")
+
+        st.caption(
+            "Giriş doğrulaması Supabase Auth üzerinden yapılır. "
+            "Veritabanı erişimi öğretmen hesabına bağlı RLS politikalarıyla sınırlandırılır."
+        )
 
 
 else:
@@ -1021,6 +1145,10 @@ else:
 
     st.sidebar.header("⚙️ Veri Giriş Paneli")
 
+    aktif_ogretmen_email = st.session_state.get("sb_user_email", "")
+    if aktif_ogretmen_email:
+        st.sidebar.caption(f"🔐 Oturum: {aktif_ogretmen_email}")
+
     st.sidebar.subheader("👤 Öğrenci Bilgileri")
 
     kayitli_ogrenciler, ogrenci_liste_hatasi = kayitli_ogrencileri_getir()
@@ -1214,7 +1342,7 @@ else:
         "🚪 Sistemden Çıkış Yap"
     ):
 
-        st.session_state["giris_yapildi"] = False
+        supabase_cikis_yap()
         st.session_state["smartclass_ai_messages"] = []
         st.session_state["son_analiz"] = None
         st.session_state["yeni_analiz_yapildi"] = False
