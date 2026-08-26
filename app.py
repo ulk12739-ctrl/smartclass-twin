@@ -1,5 +1,6 @@
 import pandas as pd
 import json
+import re
 from sklearn.tree import DecisionTreeClassifier
 import streamlit as st
 import matplotlib.pyplot as plt
@@ -91,67 +92,112 @@ def _temiz_metin(deger):
     return " ".join(str(deger or "").strip().split())
 
 
+def kayitli_ogrencileri_getir():
+    """Öğretmenin seçim yapabilmesi için kayıtlı öğrencileri getirir."""
+    client, hata = supabase_client_al()
+    if hata:
+        return [], hata
+
+    try:
+        sonuc = (
+            client.table("ogrenciler")
+            .select("id, ogrenci_kodu, ad_soyad, sinif")
+            .order("sinif")
+            .order("ad_soyad")
+            .execute()
+        )
+        return sonuc.data or [], None
+    except Exception:
+        return [], (
+            "Kayıtlı öğrenci listesi alınamadı. Veritabanı bağlantısını kontrol edin."
+        )
+
+
+def siradaki_ogrenci_kodu_uret(client):
+    """ST0001, ST0002 ... biçiminde sıradaki benzersiz öğrenci kodunu üretir."""
+    sonuc = client.table("ogrenciler").select("ogrenci_kodu").execute()
+    en_buyuk = 0
+
+    for kayit in sonuc.data or []:
+        kod = _temiz_metin(kayit.get("ogrenci_kodu")).upper()
+        eslesme = re.fullmatch(r"ST0*(\d+)", kod)
+        if eslesme:
+            en_buyuk = max(en_buyuk, int(eslesme.group(1)))
+
+    return f"ST{en_buyuk + 1:04d}"
+
+
 def ogrenciyi_bul_veya_olustur(client, ogrenci_kodu, ad_soyad, sinif):
     """
-    Öğrenci kodu üzerinden kimlik kaydını bulur.
-    Kod yoksa yeni öğrenci oluşturur; kod başka bir kimlikle eşleşiyorsa
-    yanlış öğrenciye analiz bağlanmasını engeller.
+    Kayıtlı öğrenci seçilmişse mevcut kimliği doğrular.
+    Yeni öğrenci için öğrenci kodunu otomatik üretir ve kimlik kaydını oluşturur.
     """
     kod = _temiz_metin(ogrenci_kodu).upper()
     ad = _temiz_metin(ad_soyad)
     sinif_degeri = _temiz_metin(sinif).upper()
 
-    if not kod or not ad or not sinif_degeri:
-        raise ValueError("Öğrenci kodu, ad soyad ve sınıf alanları zorunludur.")
+    if not ad or not sinif_degeri:
+        raise ValueError("Ad soyad ve sınıf alanları zorunludur.")
 
-    sonuc = (
-        client.table("ogrenciler")
-        .select("id, ogrenci_kodu, ad_soyad, sinif")
-        .eq("ogrenci_kodu", kod)
-        .limit(1)
-        .execute()
-    )
+    if kod:
+        sonuc = (
+            client.table("ogrenciler")
+            .select("id, ogrenci_kodu, ad_soyad, sinif")
+            .eq("ogrenci_kodu", kod)
+            .limit(1)
+            .execute()
+        )
 
-    if sonuc.data:
+        if not sonuc.data:
+            raise ValueError(
+                f"`{kod}` kodlu öğrenci veritabanında bulunamadı. "
+                "Kayıtlı öğrenci listesinden seçim yapın veya Yeni Öğrenci modunu kullanın."
+            )
+
         kayit = sonuc.data[0]
         kayitli_ad = _temiz_metin(kayit.get("ad_soyad"))
         kayitli_sinif = _temiz_metin(kayit.get("sinif")).upper()
 
         if kayitli_ad.casefold() != ad.casefold() or kayitli_sinif != sinif_degeri:
             raise ValueError(
-                f"`{kod}` öğrenci kodu veritabanında başka bir kimlik bilgisiyle "
-                "kayıtlı. Yanlış öğrenciye analiz bağlanmaması için öğrenci kodunu, "
-                "ad soyadı ve sınıfı kontrol edin."
+                f"`{kod}` öğrenci kodunun kimlik bilgileri veritabanındaki kayıtla eşleşmiyor. "
+                "Yanlış öğrenciye analiz bağlanmaması için kayıtlı öğrenci listesinden tekrar seçim yapın."
             )
 
-        return kayit["id"], False
+        return kayit["id"], False, kayit["ogrenci_kodu"]
 
-    eklenen = (
-        client.table("ogrenciler")
-        .insert(
-            {
-                "ogrenci_kodu": kod,
-                "ad_soyad": ad,
-                "sinif": sinif_degeri,
-            }
-        )
-        .execute()
-    )
+    # Yeni öğrenci: kodu sistem üretir. Unique kısıtına karşı kısa bir yeniden deneme yapılır.
+    son_hata = None
+    for _ in range(3):
+        yeni_kod = siradaki_ogrenci_kodu_uret(client)
+        try:
+            eklenen = (
+                client.table("ogrenciler")
+                .insert(
+                    {
+                        "ogrenci_kodu": yeni_kod,
+                        "ad_soyad": ad,
+                        "sinif": sinif_degeri,
+                    }
+                )
+                .execute()
+            )
+            if eklenen.data:
+                return eklenen.data[0]["id"], True, yeni_kod
+        except Exception as e:
+            son_hata = e
 
-    if not eklenen.data:
-        raise RuntimeError("Öğrenci kaydı oluşturulamadı.")
-
-    return eklenen.data[0]["id"], True
+    raise RuntimeError(f"Öğrenci kaydı oluşturulamadı: {son_hata}")
 
 
 def analizi_supabase_kaydet(analiz):
     """Son öğrenci analizini PostgreSQL'e kalıcı olarak kaydeder."""
     client, hata = supabase_client_al()
     if hata:
-        return False, hata
+        return False, hata, None
 
     try:
-        ogrenci_id, yeni_ogrenci = ogrenciyi_bul_veya_olustur(
+        ogrenci_id, yeni_ogrenci, gercek_kod = ogrenciyi_bul_veya_olustur(
             client,
             analiz.get("ogrenci_kodu"),
             analiz.get("ogrenci_adi"),
@@ -187,23 +233,21 @@ def analizi_supabase_kaydet(analiz):
         sonuc = client.table("analiz_gecmisi").insert(kayit).execute()
 
         if not sonuc.data:
-            return False, "Analiz kaydı veritabanına eklenemedi."
+            return False, "Analiz kaydı veritabanına eklenemedi.", None
 
         if yeni_ogrenci:
             return True, (
-                f"✅ {analiz['ogrenci_kodu']} kodlu öğrenci oluşturuldu ve "
-                "analiz kalıcı olarak kaydedildi."
-            )
+                f"✅ Yeni öğrenci **{gercek_kod}** koduyla oluşturuldu ve analiz kalıcı olarak kaydedildi."
+            ), gercek_kod
 
-        return True, "✅ Analiz mevcut öğrenci kaydına kalıcı olarak eklendi."
+        return True, "✅ Analiz mevcut öğrenci kaydına kalıcı olarak eklendi.", gercek_kod
 
     except ValueError as e:
-        return False, str(e)
+        return False, str(e), None
     except Exception:
         return False, (
-            "Analiz kaydedilemedi. Veritabanı bağlantısını ve tablo sütunlarını "
-            "kontrol edin."
-        )
+            "Analiz kaydedilemedi. Veritabanı bağlantısını ve tablo sütunlarını kontrol edin."
+        ), None
 
 
 def smartclass_ai_yanit_al(soru, analiz_baglami, sohbet_gecmisi):
@@ -953,22 +997,67 @@ else:
 
     st.sidebar.subheader("👤 Öğrenci Bilgileri")
 
-    ogrenci_kodu = st.sidebar.text_input(
-        "Öğrenci Kodu",
-        value="ST01",
-        help="Her öğrenci için benzersiz kod. Örn: ST01"
-    ).strip().upper()
+    sinif_secenekleri = [
+        "9/A", "9/B", "9/C",
+        "10/A", "10/B", "10/C",
+        "11/A", "11/B", "11/C",
+        "12/A", "12/B", "12/C",
+    ]
 
-    ogrenci_adi = st.sidebar.text_input(
-        "Ad Soyad",
-        value="Öğrenci Örnek"
-    ).strip()
+    kayitli_ogrenciler, ogrenci_liste_hatasi = kayitli_ogrencileri_getir()
+    if ogrenci_liste_hatasi:
+        st.sidebar.warning(ogrenci_liste_hatasi)
 
-    sinif = st.sidebar.text_input(
-        "Sınıf",
-        value="8/A",
-        help="Örn: 8/A"
-    ).strip().upper()
+    ogrenci_modu = st.sidebar.radio(
+        "Öğrenci İşlemi",
+        ["Kayıtlı Öğrenci Seç", "Yeni Öğrenci Ekle"],
+        key="ogrenci_modu",
+    )
+
+    if ogrenci_modu == "Kayıtlı Öğrenci Seç" and kayitli_ogrenciler:
+        secenekler = {}
+        for kayit in kayitli_ogrenciler:
+            etiket = (
+                f"{kayit.get('ad_soyad', '')} — {kayit.get('sinif', '')} "
+                f"({kayit.get('ogrenci_kodu', '')})"
+            )
+            secenekler[etiket] = kayit
+
+        secilen_etiket = st.sidebar.selectbox(
+            "Kayıtlı Öğrenci",
+            list(secenekler.keys()),
+        )
+        secilen_ogrenci = secenekler[secilen_etiket]
+        ogrenci_kodu = _temiz_metin(secilen_ogrenci.get("ogrenci_kodu")).upper()
+        ogrenci_adi = _temiz_metin(secilen_ogrenci.get("ad_soyad"))
+        sinif = _temiz_metin(secilen_ogrenci.get("sinif")).upper()
+
+        st.sidebar.caption(f"🔑 Sistem kodu: **{ogrenci_kodu}**")
+
+    elif ogrenci_modu == "Kayıtlı Öğrenci Seç":
+        st.sidebar.info(
+            "Henüz kayıtlı öğrenci bulunmuyor. Yeni öğrenci eklemek için aşağıdaki modu seçin."
+        )
+        ogrenci_kodu = ""
+        ogrenci_adi = ""
+        sinif = "9/A"
+
+    else:
+        ogrenci_kodu = ""
+        ogrenci_adi = st.sidebar.text_input(
+            "Ad Soyad",
+            value="",
+            placeholder="Örn: Ayşe Yılmaz",
+        ).strip()
+        sinif = st.sidebar.selectbox(
+            "Sınıf",
+            sinif_secenekleri,
+            index=0,
+        )
+        st.sidebar.caption(
+            "🔑 Öğrenci kodu ilk analiz kaydedilirken sistem tarafından otomatik oluşturulur "
+            "(ST0001, ST0002, ...)."
+        )
 
     with st.sidebar.expander("🗄️ Veritabanı Durumu"):
         st.caption(
@@ -1142,9 +1231,12 @@ else:
         ai_tahmin = a["ai_tahmin"]
         risk_olasiligi = a["risk_olasiligi"]
 
-        kimlik_eki = ""
-        if ogrenci_kodu or sinif:
-            kimlik_eki = f" ({ogrenci_kodu} · {sinif})"
+        kimlik_parcalari = [x for x in [ogrenci_kodu, sinif] if x]
+        kimlik_eki = (
+            " (" + " · ".join(kimlik_parcalari) + ")"
+            if kimlik_parcalari
+            else ""
+        )
 
         st.subheader(
             f"📋 {ogrenci_adi}{kimlik_eki} İçin Risk Analiz Raporu"
@@ -1596,10 +1688,15 @@ else:
 
 
 
+    ogrenci_bilgisi_hazir = bool(_temiz_metin(ogrenci_adi) and _temiz_metin(sinif))
+    if not ogrenci_bilgisi_hazir:
+        st.info("👤 Analiz için önce bir kayıtlı öğrenci seçin veya yeni öğrencinin adını girin.")
+
     if st.button(
         "📊 Öğrenci Risk Analizini Yap",
         type="primary",
-        use_container_width=True
+        use_container_width=True,
+        disabled=not ogrenci_bilgisi_hazir,
     ):
 
         puan, durum, gerekce = risk_hesapla(
@@ -1728,9 +1825,10 @@ else:
             "Kayıt sırasında öğrenci kimliği `ogrenciler` tablosunda, analiz verileri "
             "ise öğrenci ID'si üzerinden `analiz_gecmisi` tablosunda tutulur."
         )
+        kod_gosterimi = kayit_analizi.get("ogrenci_kodu") or "Kod otomatik oluşturulacak"
         st.info(
             f"👤 **{kayit_analizi['ogrenci_adi']}** · "
-            f"{kayit_analizi['ogrenci_kodu']} · {kayit_analizi['sinif']}  |  "
+            f"{kod_gosterimi} · {kayit_analizi['sinif']}  |  "
             f"📚 Akademik: **{kayit_analizi['puan']}/100**  |  "
             f"🤝 Sosyal: **{kayit_analizi['sosyal_puan']}/100**"
         )
@@ -1745,10 +1843,12 @@ else:
                 key="analizi_supabase_kaydet"
             ):
                 with st.spinner("Analiz Supabase/PostgreSQL'e kaydediliyor..."):
-                    basarili, mesaj = analizi_supabase_kaydet(kayit_analizi)
+                    basarili, mesaj, kaydedilen_kod = analizi_supabase_kaydet(kayit_analizi)
 
                 if basarili:
                     st.session_state["analiz_kaydedildi"] = True
+                    if kaydedilen_kod:
+                        st.session_state["son_analiz"]["ogrenci_kodu"] = kaydedilen_kod
                     st.success(mesaj)
                 else:
                     st.error(mesaj)
