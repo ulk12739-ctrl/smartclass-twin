@@ -16,9 +16,35 @@ st.set_page_config(
 )
 
 
+
+def ogrenci_analiz_gecmisini_getir(ogrenci_id):
+    """Seçilen öğrencinin kayıtlı analiz geçmişini kronolojik sırada getirir."""
+    client, hata = supabase_client_al()
+    if hata:
+        return [], hata
+
+    try:
+        sonuc = (
+            client.table("analiz_gecmisi")
+            .select(
+                "id, analiz_tarihi, akademik_risk, akademik_durum, "
+                "sosyal_risk, sosyal_durum, genel_destek"
+            )
+            .eq("ogrenci_id", ogrenci_id)
+            .order("analiz_tarihi")
+            .execute()
+        )
+        return sonuc.data or [], None
+    except Exception:
+        return [], (
+            "Analiz geçmişi alınamadı. Supabase bağlantısını ve `analiz_gecmisi` "
+            "tablosunu kontrol edin."
+        )
+
+
 # --------------------------------------------------------------------------
 # SMARTCLASS AI ÖĞRETMEN ASİSTANI
-# SÜRÜM: AI-FIX-2026-08-25
+# SÜRÜM: TIMELINE-2026-08-26
 # --------------------------------------------------------------------------
 # API anahtarı kaynak kodda tutulmaz. Streamlit Secrets içinde
 # GEMINI_API_KEY adıyla saklanır.
@@ -1846,6 +1872,236 @@ else:
                     st.success(mesaj)
                 else:
                     st.error(mesaj)
+
+
+    # ----------------------------------------------------------------------
+    # RİSK ZAMAN ÇİZELGESİ
+    # ----------------------------------------------------------------------
+    st.markdown("---")
+    st.header("📈 Risk Zaman Çizelgesi")
+    st.write(
+        "Kayıtlı analizleri karşılaştırarak akademik ve sosyal riskin zaman içindeki "
+        "değişimini izleyebilirsiniz. Puan değişimleri bir neden-sonuç kanıtı değil, "
+        "takip göstergesidir."
+    )
+
+    if kayitli_ogrenciler:
+        timeline_secenekler = {}
+        for kayit in kayitli_ogrenciler:
+            etiket = (
+                f"{kayit.get('ad_soyad', '')} — {kayit.get('sinif', '')} "
+                f"({kayit.get('ogrenci_kodu', '')})"
+            )
+            timeline_secenekler[etiket] = kayit
+
+        timeline_etiketleri = list(timeline_secenekler.keys())
+        varsayilan_timeline_index = 0
+        aktif_kod = _temiz_metin(
+            st.session_state.get("son_analiz", {}).get("ogrenci_kodu", "")
+            if st.session_state.get("son_analiz")
+            else ""
+        ).upper()
+
+        if aktif_kod:
+            for i, etiket in enumerate(timeline_etiketleri):
+                if _temiz_metin(
+                    timeline_secenekler[etiket].get("ogrenci_kodu")
+                ).upper() == aktif_kod:
+                    varsayilan_timeline_index = i
+                    break
+
+        timeline_secim = st.selectbox(
+            "Geçmişi görüntülenecek öğrenci",
+            timeline_etiketleri,
+            index=varsayilan_timeline_index,
+            key="timeline_ogrenci_secimi",
+        )
+        timeline_ogrenci = timeline_secenekler[timeline_secim]
+
+        gecmis_kayitlari, gecmis_hatasi = ogrenci_analiz_gecmisini_getir(
+            timeline_ogrenci["id"]
+        )
+
+        if gecmis_hatasi:
+            st.error(gecmis_hatasi)
+        elif not gecmis_kayitlari:
+            st.info(
+                "Bu öğrenci için henüz kalıcı analiz kaydı yok. Bir analiz oluşturup "
+                "**Bu Analizi Kaydet** butonuyla kaydettikten sonra zaman çizelgesi oluşacaktır."
+            )
+        else:
+            gecmis_df = pd.DataFrame(gecmis_kayitlari)
+            gecmis_df["analiz_tarihi"] = pd.to_datetime(
+                gecmis_df["analiz_tarihi"],
+                utc=True,
+                errors="coerce",
+            )
+            gecmis_df = (
+                gecmis_df.dropna(subset=["analiz_tarihi"])
+                .sort_values("analiz_tarihi")
+                .reset_index(drop=True)
+            )
+
+            if gecmis_df.empty:
+                st.warning("Kayıtların tarih bilgisi okunamadı.")
+            else:
+                try:
+                    gecmis_df["yerel_tarih"] = gecmis_df["analiz_tarihi"].dt.tz_convert(
+                        "Europe/Istanbul"
+                    )
+                except Exception:
+                    gecmis_df["yerel_tarih"] = gecmis_df["analiz_tarihi"]
+
+                gecmis_df["akademik_risk"] = pd.to_numeric(
+                    gecmis_df["akademik_risk"], errors="coerce"
+                )
+                gecmis_df["sosyal_risk"] = pd.to_numeric(
+                    gecmis_df["sosyal_risk"], errors="coerce"
+                )
+
+                son = gecmis_df.iloc[-1]
+                onceki = gecmis_df.iloc[-2] if len(gecmis_df) >= 2 else None
+
+                delta_akademik = None
+                delta_sosyal = None
+                if onceki is not None:
+                    delta_akademik = float(son["akademik_risk"]) - float(
+                        onceki["akademik_risk"]
+                    )
+                    delta_sosyal = float(son["sosyal_risk"]) - float(
+                        onceki["sosyal_risk"]
+                    )
+
+                m_tarih, m_akademik, m_sosyal, m_kayit = st.columns(4)
+                m_tarih.metric(
+                    "Son Analiz",
+                    son["yerel_tarih"].strftime("%d.%m.%Y"),
+                )
+                m_akademik.metric(
+                    "📚 Akademik Risk",
+                    f"{float(son['akademik_risk']):.1f}/100",
+                    delta=(
+                        f"{delta_akademik:+.1f} puan"
+                        if delta_akademik is not None
+                        else None
+                    ),
+                    delta_color="inverse",
+                )
+                m_sosyal.metric(
+                    "🤝 Sosyal Risk",
+                    f"{float(son['sosyal_risk']):.1f}/100",
+                    delta=(
+                        f"{delta_sosyal:+.1f} puan"
+                        if delta_sosyal is not None
+                        else None
+                    ),
+                    delta_color="inverse",
+                )
+                m_kayit.metric("Kayıt Sayısı", len(gecmis_df))
+
+                st.caption(
+                    f"Son genel destek durumu: **{son.get('genel_destek', '-')}** · "
+                    "Risk puanında azalma olumlu yönde, artış ise daha yakından izleme "
+                    "gereksinimi olarak yorumlanabilir."
+                )
+
+                fig_timeline = go.Figure()
+                fig_timeline.add_trace(
+                    go.Scatter(
+                        x=gecmis_df["yerel_tarih"],
+                        y=gecmis_df["akademik_risk"],
+                        mode="lines+markers",
+                        name="Akademik Risk",
+                        hovertemplate="%{x|%d.%m.%Y %H:%M}<br>Akademik Risk: %{y:.1f}<extra></extra>",
+                    )
+                )
+                fig_timeline.add_trace(
+                    go.Scatter(
+                        x=gecmis_df["yerel_tarih"],
+                        y=gecmis_df["sosyal_risk"],
+                        mode="lines+markers",
+                        name="Sosyal Risk",
+                        hovertemplate="%{x|%d.%m.%Y %H:%M}<br>Sosyal Risk: %{y:.1f}<extra></extra>",
+                    )
+                )
+                fig_timeline.update_layout(
+                    yaxis=dict(title="Risk Puanı", range=[0, 100]),
+                    xaxis=dict(title="Analiz Tarihi"),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
+                    margin=dict(l=20, r=20, t=55, b=20),
+                    height=420,
+                    hovermode="x unified",
+                )
+                st.plotly_chart(fig_timeline, use_container_width=True)
+
+                if onceki is not None:
+                    st.markdown("#### 🔄 Son İki Analiz Karşılaştırması")
+
+                    def risk_degisimi_metni(ad, onceki_deger, son_deger):
+                        fark = float(son_deger) - float(onceki_deger)
+                        if abs(fark) < 0.05:
+                            return f"**{ad}:** {onceki_deger:.1f} → {son_deger:.1f} · değişim yok"
+                        if fark < 0:
+                            return (
+                                f"**{ad}:** {onceki_deger:.1f} → {son_deger:.1f} · "
+                                f"**{abs(fark):.1f} puan azaldı**"
+                            )
+                        return (
+                            f"**{ad}:** {onceki_deger:.1f} → {son_deger:.1f} · "
+                            f"**{fark:.1f} puan arttı**"
+                        )
+
+                    st.write(
+                        risk_degisimi_metni(
+                            "Akademik risk",
+                            float(onceki["akademik_risk"]),
+                            float(son["akademik_risk"]),
+                        )
+                    )
+                    st.write(
+                        risk_degisimi_metni(
+                            "Sosyal risk",
+                            float(onceki["sosyal_risk"]),
+                            float(son["sosyal_risk"]),
+                        )
+                    )
+                else:
+                    st.info(
+                        "Karşılaştırma için en az iki kalıcı analiz kaydı gerekir. "
+                        "Aynı öğrenci için ileride yeni bir analiz kaydettiğinizde değişim otomatik hesaplanacaktır."
+                    )
+
+                with st.expander("🗂️ Kayıtlı analizleri tablo olarak görüntüle"):
+                    tablo_df = gecmis_df[
+                        [
+                            "yerel_tarih",
+                            "akademik_risk",
+                            "akademik_durum",
+                            "sosyal_risk",
+                            "sosyal_durum",
+                            "genel_destek",
+                        ]
+                    ].copy()
+                    tablo_df["yerel_tarih"] = tablo_df["yerel_tarih"].dt.strftime(
+                        "%d.%m.%Y %H:%M"
+                    )
+                    tablo_df.columns = [
+                        "Analiz Tarihi",
+                        "Akademik Risk",
+                        "Akademik Durum",
+                        "Sosyal Risk",
+                        "Sosyal Durum",
+                        "Genel Destek",
+                    ]
+                    st.dataframe(
+                        tablo_df.sort_index(ascending=False),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+    else:
+        st.info(
+            "Risk zaman çizelgesi için önce en az bir öğrenci ve analiz kaydı oluşturun."
+        )
 
 
     st.markdown("---")
