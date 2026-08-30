@@ -42,12 +42,7 @@ def ogrenci_analiz_gecmisini_getir(ogrenci_id):
         )
 
 
-# --------------------------------------------------------------------------
-# SMARTCLASS AI ÖĞRETMEN ASİSTANI
-# SÜRÜM: TIMELINE-2026-08-26
-# --------------------------------------------------------------------------
-# API anahtarı kaynak kodda tutulmaz. Streamlit Secrets içinde
-# GEMINI_API_KEY adıyla saklanır.
+
 
 if "smartclass_ai_messages" not in st.session_state:
     st.session_state["smartclass_ai_messages"] = []
@@ -62,13 +57,6 @@ if "analiz_kaydedildi" not in st.session_state:
     st.session_state["analiz_kaydedildi"] = False
 
 
-# --------------------------------------------------------------------------
-# SUPABASE AUTH + POSTGRESQL KALICI KAYIT KATMANI
-# SÜRÜM: AUTH-RLS-2026-08-26
-# --------------------------------------------------------------------------
-# Normal öğretmen işlemleri yalnızca SUPABASE_PUBLISHABLE_KEY ile yapılır.
-# SUPABASE_SECRET_KEY uygulamanın normal akışında kullanılmaz.
-# Öğretmen oturumu Supabase Auth üzerinden açılır; veritabanı erişimi RLS'ye tabidir.
 
 AUTH_SESSION_KEYS = (
     "sb_access_token",
@@ -322,7 +310,7 @@ def ogrenciyi_bul_veya_olustur(client, ogrenci_kodu, ad_soyad, sinif):
                         "ogrenci_kodu": yeni_kod,
                         "ad_soyad": ad,
                         "sinif": sinif_degeri,
-                        # ogretmen_id veritabanında auth.uid() default'u ile atanır.
+                       
                     }
                 )
                 .execute()
@@ -415,7 +403,7 @@ def smartclass_ai_yanit_al(soru, analiz_baglami, sohbet_gecmisi):
             "bölümünde `GEMINI_API_KEY` tanımlı olmalıdır."
         )
 
-    # Veri minimizasyonu: gerçek öğrenci adı harici AI servisine gönderilmez.
+  
     ogrenci_tanimlayici = str(analiz_baglami.get("ogrenci_adi", "Seçili öğrenci"))
     if not ogrenci_tanimlayici.strip().upper().startswith("ST"):
         modele_giden_ogrenci = "Seçili öğrenci"
@@ -484,8 +472,7 @@ Sen SmartClass Twin projesinin Twin AI Asistanısın.
     client = genai.Client(api_key=api_key)
     son_hata = None
 
-    # Jüri/demonstrasyon kullanımında gecikmeyi azaltmak için düşük gecikmeli
-    # Flash-Lite modeli önceliklidir. Daha ağır modele yalnızca erişim hatasında düşülür.
+    
     model_listesi = ["gemini-3.5-flash-lite", "gemini-2.5-flash-lite"]
 
     for model_adi in model_listesi:
@@ -515,7 +502,7 @@ Sen SmartClass Twin projesinin Twin AI Asistanısın.
                 config=config,
             )
 
-            # Yalnızca thought=False olan görünür cevap parçalarını topla.
+           
             gorunen_parcalar = []
             if getattr(response, "candidates", None):
                 for candidate in response.candidates:
@@ -536,7 +523,7 @@ Sen SmartClass Twin projesinin Twin AI Asistanısın.
             if not ham_yanit:
                 continue
 
-            # Önceki ekranda görülen meta kontrol satırlarını son bir güvenlik katmanında süz.
+            
             yasak_meta = (
                 "no diagnoses",
                 "cautious language",
